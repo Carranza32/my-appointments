@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-primary-50: var(--color-indigo-50);
+  --color-primary-100: var(--color-indigo-100);
+  --color-primary-200: var(--color-indigo-200);
+  --color-primary-300: var(--color-indigo-300);
+  --color-primary-400: var(--color-indigo-400);
+  --color-primary-500: var(--color-indigo-500);
+  --color-primary-600: var(--color-indigo-600);
+  --color-primary-700: var(--color-indigo-700);
+  --color-primary-800: var(--color-indigo-800);
+  --color-primary-900: var(--color-indigo-900);
+  --color-primary-950: var(--color-indigo-950);
+  
+  --color-brand-slate: #0F172A;
+  --color-brand-card: #1E293B;
+  --color-brand-indigo: #4F46E5;
+  --color-brand-green: #10B981;
+  --color-brand-red: #EF4444;
+
+  --color-frost-primary: #1A73E8;
+  --color-frost-primary-hover: #005bbf;
+  --color-frost-bg-lavender: #E8EFFE;
+  --color-frost-surface: #fbf9f8;
+  --color-frost-surface-container: #f0eded;
+  --color-frost-on-surface: #1b1c1c;
+  --color-frost-on-surface-variant: #414754;
+
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Enable class-based dark mode in Tailwind v4 */
+@variant dark (&:where(.dark, .dark *));
+
+/* Glassmorphism/Frost utility classes (2026 style) */
+@utility bg-frost-light {
+  background-color: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@utility bg-frost-dark {
+  background-color: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+@utility bg-frost-glass {
+  background-color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3), 0 8px 32px 0 rgba(0, 0, 0, 0.03);
+
+  .dark & {
+    background-color: rgba(30, 41, 59, 0.45);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 8px 32px 0 rgba(0, 0, 0, 0.25);
   }
 }
 
+@utility bg-frost-glass-hover {
+  background-color: rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.4), 0 12px 40px 0 rgba(0, 0, 0, 0.05);
+
+  .dark & {
+    background-color: rgba(30, 41, 59, 0.6);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 12px 40px 0 rgba(0, 0, 0, 0.35);
+  }
+}
+
+@utility border-frost-light {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+@utility border-frost-dark {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+@utility text-glow-blue {
+  text-shadow: 0 0 10px rgba(26, 115, 232, 0.4);
+}
+
+@utility shadow-frost {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
+}
+
+@utility shadow-frost-dark {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Animations and decorative glows */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-10px) scale(1.05);
+  }
+}
+
+@utility animate-float-slow {
+  animation: float 8s ease-in-out infinite;
+}
+
+@utility animate-float-delayed {
+  animation: float 10s ease-in-out infinite;
+  animation-delay: 2s;
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.5);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }

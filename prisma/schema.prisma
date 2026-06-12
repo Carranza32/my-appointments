@@ -1,0 +1,161 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Rubro {
+  SALUD
+  BELLEZA
+  CONSULTORIA
+}
+
+enum PlanTier {
+  FREE
+  PRO
+}
+
+enum AppointmentStatus {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
+}
+
+model User {
+  id               String          @id @default(uuid())
+  email            String          @unique
+  password         String?
+  name             String
+  slug             String          @unique
+  rubro            Rubro
+  planTier         PlanTier        @default(FREE)
+  stripeCustomerId String?         @unique
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  config           BusinessConfig?
+  googleAccount    GoogleAccount?
+  appointments     Appointment[]
+  clients          Client[]
+  locations        Location[]
+  staff            Staff[]
+  clinicalRecords  ClinicalRecord[]
+}
+
+model GoogleAccount {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiryDate   BigInt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model BusinessConfig {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slotDuration   Int      @default(30)
+  bufferTime     Int      @default(0)
+  weeklyHours    Json
+  formFields     Json
+  removeBranding Boolean  @default(false)
+  enableWhatsApp Boolean  @default(false)
+  description    String?
+  avatarUrl      String?
+  timezone       String   @default("America/Mexico_City")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Appointment {
+  id                   String            @id @default(uuid())
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEventId        String?           @unique
+  startTime            DateTime
+  endTime              DateTime
+  status               AppointmentStatus @default(PENDIENTE)
+  clientName           String
+  clientEmail          String
+  clientPhone          String
+  clientMetadata       Json?
+  locationId           String?
+  location             Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  staffId              String?
+  staff                Staff?            @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  reminderSent         Boolean           @default(false)
+  reminderWhatsAppSent Boolean           @default(false)
+  price                Float?            @default(0)
+  paymentStatus        String?           @default("PENDIENTE") // "PENDIENTE" | "PAGADO" | "REEMBOLSADO"
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([userId, startTime, endTime])
+}
+
+model Client {
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  email           String
+  phone           String
+  notes           String?
+  clinicalRecords ClinicalRecord[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([userId, email])
+  @@index([userId, email])
+}
+
+model Location {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  address      String
+  phone        String?
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Staff {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  email        String
+  phone        String?
+  description  String?
+  avatarUrl    String?
+  weeklyHours  Json
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model ClinicalRecord {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  type        String   @default("EVOLUCION") // "EVOLUCION" | "NOTA" | "CONSENTIMIENTO"
+  content     String   @db.Text
+  attachments Json?    // Array of file URLs or descriptions
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([userId])
+}
+
