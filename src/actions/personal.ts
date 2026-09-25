@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getProfessional, requireAuth } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { canCreateStaff } from "@/lib/plan-guard";
+import { isValidSlug, normalizeSlug } from "@/lib/slug";
 
 export type StaffDTO = {
   id: string;
@@ -13,6 +15,9 @@ export type StaffDTO = {
   avatarUrl: string | null;
   weeklyHours: any;
   createdAt: string;
+  slug: string | null;
+  isActive: boolean;
+  serviceIds?: string[];
 };
 
 const DEFAULT_WEEKLY_HOURS = {
@@ -26,12 +31,15 @@ const DEFAULT_WEEKLY_HOURS = {
 };
 
 export async function getStaffList(): Promise<StaffDTO[]> {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return [];
+  const tenant = await withTenant();
 
   const rows = await prisma.staff.findMany({
-    where: { userId: professional.id },
+    where: { userId: tenant.userId },
+    include: {
+      staffServices: {
+        select: { serviceId: true },
+      },
+    },
     orderBy: { name: "asc" },
   });
 
@@ -44,6 +52,9 @@ export async function getStaffList(): Promise<StaffDTO[]> {
     avatarUrl: s.avatarUrl,
     weeklyHours: s.weeklyHours,
     createdAt: s.createdAt.toISOString(),
+    slug: s.slug,
+    isActive: s.isActive,
+    serviceIds: s.staffServices.map((ss) => ss.serviceId),
   }));
 }
 
@@ -53,10 +64,14 @@ export async function createStaff(input: {
   phone?: string;
   description?: string;
   avatarUrl?: string;
+  slug?: string;
 }) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
+
+  const planCheck = await canCreateStaff(tenant.userId, tenant.planTier);
+  if (!planCheck.allowed) {
+    return { error: planCheck.reason };
+  }
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
@@ -71,15 +86,32 @@ export async function createStaff(input: {
     return { error: "El correo electrónico es inválido." };
   }
 
+  let normalizedSlug: string | null = null;
+  if (input.slug && input.slug.trim()) {
+    normalizedSlug = normalizeSlug(input.slug);
+    if (!isValidSlug(normalizedSlug)) {
+      return { error: "El slug del staff no es válido." };
+    }
+
+    const existingSlug = await prisma.staff.findFirst({
+      where: { userId: tenant.userId, slug: normalizedSlug },
+    });
+    if (existingSlug) {
+      return { error: "Este slug ya está asignado a otro integrante de tu equipo." };
+    }
+  }
+
   const staff = await prisma.staff.create({
     data: {
-      userId: professional.id,
+      userId: tenant.userId,
       name,
       email,
       phone,
       description,
       avatarUrl,
       weeklyHours: DEFAULT_WEEKLY_HOURS,
+      slug: normalizedSlug,
+      isActive: true,
     },
   });
 
@@ -96,17 +128,18 @@ export async function updateStaff(
     description?: string;
     avatarUrl?: string;
     weeklyHours?: any;
+    slug?: string;
+    isActive?: boolean;
   }
 ) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
   const phone = input.phone?.trim() || null;
   const description = input.description?.trim() || null;
   const avatarUrl = input.avatarUrl?.trim() || null;
+  const isActive = input.isActive !== undefined ? input.isActive : true;
 
   if (!name || name.length < 2) {
     return { error: "El nombre debe tener al menos 2 caracteres." };
@@ -116,11 +149,30 @@ export async function updateStaff(
   }
 
   const existing = await prisma.staff.findFirst({
-    where: { id, userId: professional.id },
+    where: { id, userId: tenant.userId },
   });
 
   if (!existing) {
     return { error: "Personal no encontrado." };
+  }
+
+  let normalizedSlug: string | null = null;
+  if (input.slug && input.slug.trim()) {
+    normalizedSlug = normalizeSlug(input.slug);
+    if (!isValidSlug(normalizedSlug)) {
+      return { error: "El slug del staff no es válido." };
+    }
+
+    const existingSlug = await prisma.staff.findFirst({
+      where: {
+        userId: tenant.userId,
+        slug: normalizedSlug,
+        NOT: { id },
+      },
+    });
+    if (existingSlug) {
+      return { error: "Este slug ya está asignado a otro integrante de tu equipo." };
+    }
   }
 
   await prisma.staff.update({
@@ -132,6 +184,8 @@ export async function updateStaff(
       description,
       avatarUrl,
       weeklyHours: input.weeklyHours || existing.weeklyHours,
+      slug: normalizedSlug,
+      isActive,
     },
   });
 
@@ -140,12 +194,10 @@ export async function updateStaff(
 }
 
 export async function deleteStaff(id: string) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
 
   const existing = await prisma.staff.findFirst({
-    where: { id, userId: professional.id },
+    where: { id, userId: tenant.userId },
   });
 
   if (!existing) {

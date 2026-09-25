@@ -1,17 +1,17 @@
 "use server";
 
-import { Rubro } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { getDefaultFormFields } from "@/lib/form-fields";
 import { prisma } from "@/lib/prisma";
 import { isValidSlug, normalizeSlug } from "@/lib/slug";
+import { RUBRO_CATALOG } from "@/lib/rubros";
 import type { WeeklyHours } from "@/types/business";
 
 export type OnboardingInput = {
   name: string;
-  rubro: Rubro;
+  rubro: string;
   slug: string;
 };
 
@@ -19,6 +19,7 @@ export async function completeOnboarding(input: OnboardingInput) {
   const authUser = await requireAuth();
   const name = input.name.trim();
   const slug = normalizeSlug(input.slug);
+  const rubroNormalized = input.rubro.trim().toUpperCase();
 
   if (!name || name.length < 2) {
     return { error: "El nombre debe tener al menos 2 caracteres." };
@@ -28,7 +29,7 @@ export async function completeOnboarding(input: OnboardingInput) {
     return { error: "El slug no es válido." };
   }
 
-  if (!Object.values(Rubro).includes(input.rubro)) {
+  if (!RUBRO_CATALOG[rubroNormalized]) {
     return { error: "Selecciona un rubro válido." };
   }
 
@@ -46,16 +47,17 @@ export async function completeOnboarding(input: OnboardingInput) {
   }
 
   const weeklyHours: WeeklyHours = [];
-  const formFields = getDefaultFormFields(input.rubro);
+  const formFields = getDefaultFormFields(rubroNormalized);
+  const rubroConfig = RUBRO_CATALOG[rubroNormalized];
 
-  await prisma.user.upsert({
+  const user = await prisma.user.upsert({
     where: { id: authUser.id },
     create: {
       id: authUser.id,
       email,
       name,
       slug,
-      rubro: input.rubro,
+      rubro: rubroNormalized,
       config: {
         create: {
           weeklyHours,
@@ -66,7 +68,7 @@ export async function completeOnboarding(input: OnboardingInput) {
     update: {
       name,
       slug,
-      rubro: input.rubro,
+      rubro: rubroNormalized,
       config: {
         upsert: {
           create: { weeklyHours, formFields },
@@ -75,6 +77,27 @@ export async function completeOnboarding(input: OnboardingInput) {
       },
     },
   });
+
+  // Seed default services from rubro catalog if user has no services
+  const existingServicesCount = await prisma.service.count({
+    where: { userId: user.id },
+  });
+
+  if (existingServicesCount === 0 && rubroConfig?.suggestedServices) {
+    for (const s of rubroConfig.suggestedServices) {
+      await prisma.service.create({
+        data: {
+          userId: user.id,
+          name: s.name,
+          duration: s.duration,
+          price: s.price,
+          currency: "USD",
+          isActive: true,
+          onlineBooking: true,
+        },
+      });
+    }
+  }
 
   revalidatePath("/dashboard");
   redirect("/dashboard/settings");

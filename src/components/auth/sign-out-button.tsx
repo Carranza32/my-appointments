@@ -17,7 +17,7 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={handleSignOut}
-      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/40 px-3 py-2 text-xs font-bold text-slate-600 backdrop-blur-md transition-all duration-300 hover:scale-102 hover:bg-red-500/10 hover:text-red-600 hover:border-red-500/20 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 dark:hover:border-red-500/20 cursor-pointer shadow-sm"
+      className="inline-flex items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-[#1D1D1F] transition-all hover:bg-black/[0.03] active:scale-[0.98] cursor-pointer shadow-xs"
     >
       <span>Salir</span>
       <svg

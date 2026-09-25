@@ -1,5 +1,4 @@
 import { prisma } from "../src/lib/prisma";
-import { Rubro } from "@prisma/client";
 
 const TEST_EMAIL = "phase1-test@example.com";
 const TEST_SLUG = "phase1-test-slug";
@@ -10,7 +9,7 @@ async function main() {
       email: TEST_EMAIL,
       name: "Phase 1 Test",
       slug: TEST_SLUG,
-      rubro: Rubro.CONSULTORIA,
+      rubro: "CONSULTORIA",
     },
   });
 

@@ -173,7 +173,7 @@ export function ParticleBackground() {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 w-full h-full -z-20 pointer-events-none bg-gradient-to-br from-white to-[#E8EFFE] dark:from-slate-950 dark:to-slate-900 transition-colors duration-300"
+      className="fixed inset-0 w-full h-full -z-20 pointer-events-none bg-gradient-to-br from-[#F5F5F7] to-[#ECECEE]"
     />
   );
 }

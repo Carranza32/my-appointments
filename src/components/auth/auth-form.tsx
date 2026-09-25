@@ -75,26 +75,25 @@ export function AuthForm({ mode }: { mode: Mode }) {
   }
 
   return (
-    <div className="w-full">
-      <div className="text-center mb-8">
-        <h2 className="font-heading font-extrabold text-2xl text-slate-800 dark:text-white leading-none">
-          {mode === "login" ? "Welcome back" : "Create your account"}
+    <div className="w-full font-sans">
+      <div className="text-center mb-6">
+        <h2 className="text-xl font-semibold text-[#1D1D1F] tracking-tight leading-tight">
+          {mode === "login" ? "Bienvenido de nuevo" : "Crea tu cuenta"}
         </h2>
-        <p className="mt-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <p className="mt-1.5 text-xs text-[#86868B] font-normal">
           {mode === "login"
-            ? "Please enter your details to continue"
-            : "Enter your email and choose a password to get started"}
+            ? "Ingresa tus credenciales para continuar"
+            : "Registra tu correo y contraseña para comenzar"}
         </p>
       </div>
 
-      {/* Google Sign-in Button (Generous Height py-3) */}
+      {/* Google Sign-in Button */}
       <button
         onClick={handleGoogleSignIn}
         type="button"
         disabled={loading}
-        className="w-full py-3.5 px-5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-sm font-extrabold text-slate-700 hover:scale-[1.01] active:scale-98 transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-2xs select-none dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-350 dark:hover:bg-slate-800"
+        className="w-full py-2.5 px-4 rounded-xl border border-black/[0.08] bg-black/[0.02] hover:bg-black/[0.05] text-xs font-medium text-[#1D1D1F] active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xs select-none"
       >
-        {/* Google Colored Logo Icon */}
         <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
           <path
             fill="#EA4335"
@@ -113,51 +112,51 @@ export function AuthForm({ mode }: { mode: Mode }) {
             d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.66-2.84c-1.01.68-2.31 1.09-3.95 1.09-3.04 0-5.62-2.33-6.54-5.61l-3.96 3.07C3.37 20.32 7.35 23 12 23z"
           />
         </svg>
-        <span>Continue with Google</span>
+        <span>Continuar con Google</span>
       </button>
 
       {/* Divider */}
-      <div className="flex items-center my-7 gap-3 select-none">
-        <div className="flex-1 h-px bg-slate-200/50 dark:bg-slate-800/40"></div>
-        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
-          OR
+      <div className="flex items-center my-5 gap-3 select-none">
+        <div className="flex-1 h-px bg-black/[0.06]"></div>
+        <span className="text-[10px] font-medium text-[#86868B] uppercase tracking-wider leading-none">
+          o
         </span>
-        <div className="flex-1 h-px bg-slate-200/50 dark:bg-slate-800/40"></div>
+        <div className="flex-1 h-px bg-black/[0.06]"></div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email Address */}
         <div>
-          <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Email address
+          <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-[#86868B]">
+            Correo Electrónico
           </label>
           <div className="relative">
             <input
               type="email"
               required
-              placeholder="name@company.com"
+              placeholder="nombre@ejemplo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-4 pr-10 py-3 text-sm font-semibold bg-[#f1f3f4]/40 dark:bg-slate-950/40 border border-transparent rounded-xl focus:outline-none focus:bg-white focus:border-[#1A73E8] dark:focus:bg-slate-950 dark:focus:border-blue-400 focus:shadow-sm text-slate-850 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
+              className="w-full pl-3.5 pr-10 py-2 text-xs font-normal bg-black/[0.03] border border-black/[0.08] rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] text-[#1D1D1F] placeholder:text-[#86868B] transition-all"
             />
-            <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-              <AtSign className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <AtSign className="h-3.5 w-3.5 text-[#86868B]" />
             </div>
           </div>
         </div>
 
         {/* Password */}
         <div>
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Password
+          <div className="flex justify-between items-center mb-1.5">
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-[#86868B]">
+              Contraseña
             </label>
             {mode === "login" && (
               <Link
                 href="/forgot-password"
-                className="text-xs font-bold text-[#1A73E8] dark:text-blue-400 hover:underline"
+                className="text-[11px] font-medium text-[#007AFF] hover:underline"
               >
-                Forgot password?
+                ¿La olvidaste?
               </Link>
             )}
           </div>
@@ -169,55 +168,55 @@ export function AuthForm({ mode }: { mode: Mode }) {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-4 pr-10 py-3 text-sm font-semibold bg-[#f1f3f4]/40 dark:bg-slate-950/40 border border-transparent rounded-xl focus:outline-none focus:bg-white focus:border-[#1A73E8] dark:focus:bg-slate-950 dark:focus:border-blue-400 focus:shadow-sm text-slate-850 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
+              className="w-full pl-3.5 pr-10 py-2 text-xs font-normal bg-black/[0.03] border border-black/[0.08] rounded-xl focus:outline-none focus:border-[#007AFF] focus:ring-1 focus:ring-[#007AFF] text-[#1D1D1F] placeholder:text-[#86868B] transition-all"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-450 hover:text-slate-650 dark:hover:text-slate-350 cursor-pointer"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#86868B] hover:text-[#1D1D1F] cursor-pointer"
             >
               {showPassword ? (
-                <EyeOff className="h-4 w-4" />
+                <EyeOff className="h-3.5 w-3.5" />
               ) : (
-                <Eye className="h-4 w-4" />
+                <Eye className="h-3.5 w-3.5" />
               )}
             </button>
           </div>
         </div>
 
         {error && (
-          <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-xs font-bold text-red-700 dark:bg-red-950/20 dark:text-red-300 border border-red-100/30 dark:border-red-900/30">
+          <p className="rounded-xl bg-[#FF3B30]/10 px-3.5 py-2.5 text-xs font-medium text-[#FF3B30] border border-[#FF3B30]/20">
             {error}
           </p>
         )}
 
-        {/* Submit button (Generous Height py-3.5) */}
+        {/* Submit button */}
         <button
           type="submit"
           disabled={loading}
-          className="w-full inline-flex items-center justify-center rounded-full bg-[#1A73E8] hover:bg-[#005bbf] py-3.5 text-sm font-extrabold text-white shadow-md shadow-blue-500/10 hover:shadow-lg active:scale-98 transition-all disabled:opacity-50 cursor-pointer select-none"
+          className="w-full inline-flex items-center justify-center rounded-xl bg-[#007AFF] hover:bg-[#0062cc] py-2.5 text-xs font-medium text-white shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer select-none"
         >
           {loading
-            ? "Waiting…"
+            ? "Cargando…"
             : mode === "login"
-              ? "Sign in"
-              : "Sign up"}
+              ? "Iniciar Sesión"
+              : "Registrarse"}
         </button>
 
         {/* Footer text */}
-        <p className="text-center text-xs font-semibold text-slate-500 dark:text-slate-400 mt-8 select-none">
+        <p className="text-center text-xs text-[#86868B] mt-6 select-none font-normal">
           {mode === "login" ? (
             <>
-              Don't have an account?{" "}
-              <Link href="/signup" className="font-extrabold text-[#1A73E8] dark:text-blue-400 hover:underline">
-                Sign up
+              ¿No tienes una cuenta?{" "}
+              <Link href="/signup" className="font-medium text-[#007AFF] hover:underline">
+                Regístrate
               </Link>
             </>
           ) : (
             <>
-              Already have an account?{" "}
-              <Link href="/login" className="font-extrabold text-[#1A73E8] dark:text-blue-400 hover:underline">
-                Sign in
+              ¿Ya tienes una cuenta?{" "}
+              <Link href="/login" className="font-medium text-[#007AFF] hover:underline">
+                Inicia sesión
               </Link>
             </>
           )}

@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getProfessional, requireAuth } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { canCreateClient } from "@/lib/plan-guard";
 
 export type ClientDTO = {
   id: string;
@@ -14,12 +15,10 @@ export type ClientDTO = {
 };
 
 export async function getClients(): Promise<ClientDTO[]> {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return [];
+  const tenant = await withTenant();
 
   const rows = await prisma.client.findMany({
-    where: { userId: professional.id },
+    where: { userId: tenant.userId },
     orderBy: { name: "asc" },
   });
 
@@ -39,9 +38,12 @@ export async function createClient(input: {
   phone: string;
   notes?: string;
 }) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
+
+  const planCheck = await canCreateClient(tenant.userId, tenant.planTier);
+  if (!planCheck.allowed) {
+    return { error: planCheck.reason };
+  }
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
@@ -62,7 +64,7 @@ export async function createClient(input: {
   const existing = await prisma.client.findUnique({
     where: {
       userId_email: {
-        userId: professional.id,
+        userId: tenant.userId,
         email,
       },
     },
@@ -74,7 +76,7 @@ export async function createClient(input: {
 
   const client = await prisma.client.create({
     data: {
-      userId: professional.id,
+      userId: tenant.userId,
       name,
       email,
       phone,
@@ -95,9 +97,7 @@ export async function updateClient(
     notes?: string;
   }
 ) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
@@ -117,7 +117,7 @@ export async function updateClient(
   // Check if another client has the same email
   const existingWithEmail = await prisma.client.findFirst({
     where: {
-      userId: professional.id,
+      userId: tenant.userId,
       email,
       id: { not: id },
     },
@@ -128,7 +128,7 @@ export async function updateClient(
   }
 
   const existing = await prisma.client.findFirst({
-    where: { id, userId: professional.id },
+    where: { id, userId: tenant.userId },
   });
 
   if (!existing) {
@@ -150,12 +150,10 @@ export async function updateClient(
 }
 
 export async function deleteClient(id: string) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
 
   const existing = await prisma.client.findFirst({
-    where: { id, userId: professional.id },
+    where: { id, userId: tenant.userId },
   });
 
   if (!existing) {
@@ -171,13 +169,11 @@ export async function deleteClient(id: string) {
 }
 
 export async function getClientAppointments(clientEmail: string) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return [];
+  const tenant = await withTenant();
 
   const rows = await prisma.appointment.findMany({
     where: {
-      userId: professional.id,
+      userId: tenant.userId,
       clientEmail: clientEmail,
     },
     orderBy: { startTime: "desc" },

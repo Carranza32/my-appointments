@@ -14,12 +14,19 @@ import {
   updateAppointmentPayment,
 } from "@/actions/crm";
 
+import { getLabels } from "@/lib/labels";
+import { getRubroConfig } from "@/lib/rubros";
+import { X } from "lucide-react";
+
 type Props = {
   initialClients: ClientDTO[];
+  rubro: string;
 };
 
-export function ClientsTable({ initialClients }: Props) {
+export function ClientsTable({ initialClients, rubro }: Props) {
   const [clients, setClients] = useState<ClientDTO[]>(initialClients);
+  const labels = getLabels(rubro);
+  const rubroConfig = getRubroConfig(rubro);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientDTO | null>(null);
@@ -38,6 +45,37 @@ export function ClientsTable({ initialClients }: Props) {
   const [recordAttachmentUrl, setRecordAttachmentUrl] = useState("");
   const [recordError, setRecordError] = useState<string | null>(null);
   const [isAddRecordOpen, setIsAddRecordOpen] = useState(false);
+
+  // AI assistant states
+  const [isGeneratingAiNote, setIsGeneratingAiNote] = useState(false);
+
+  const handleGenerateSoapNote = async () => {
+    const textToProcess = recordContent.trim();
+    if (!textToProcess || textToProcess.length < 5) {
+      alert("Por favor escribe primero algunas notas u observaciones en el campo para que la IA las estructure en formato SOAP.");
+      return;
+    }
+    setIsGeneratingAiNote(true);
+    try {
+      const response = await fetch("/api/ai/clinical-notes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ notes: textToProcess }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Error al conectar con el asistente de IA.");
+      }
+      setRecordContent(data.formattedNote);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Error al estructurar la nota con IA.");
+    } finally {
+      setIsGeneratingAiNote(false);
+    }
+  };
 
   // Form states
   const [name, setName] = useState("");
@@ -90,36 +128,76 @@ export function ClientsTable({ initialClients }: Props) {
     if (!historyClient) return;
     setRecordError(null);
 
+    const titleToSave = recordTitle;
+    const typeToSave = recordType;
+    const contentToSave = recordContent;
+    const attachmentsToSave = recordAttachmentUrl ? [recordAttachmentUrl] : [];
+
     startTransition(async () => {
       const res = await createClinicalRecord(historyClient.id, {
-        title: recordTitle,
-        type: recordType,
-        content: recordContent,
-        attachments: recordAttachmentUrl ? [recordAttachmentUrl] : [],
+        title: titleToSave,
+        type: typeToSave,
+        content: contentToSave,
+        attachments: attachmentsToSave,
       });
 
       if (res.error) {
         setRecordError(res.error);
       } else {
+        const optimisticRecord = {
+          id: res.recordId || String(Date.now()),
+          title: titleToSave,
+          type: typeToSave,
+          content: contentToSave,
+          attachments: attachmentsToSave.length > 0 ? attachmentsToSave : null,
+          createdAt: new Date().toISOString(),
+        };
+
+        // Instant optimistic update so it appears immediately without switching tabs
+        setCrmDetails((prev: any) =>
+          prev
+            ? {
+                ...prev,
+                clinicalRecords: [optimisticRecord, ...prev.clinicalRecords],
+              }
+            : null
+        );
+
         setRecordTitle("");
         setRecordContent("");
         setRecordAttachmentUrl("");
         setIsAddRecordOpen(false);
+
         const details = await getClientCRMDetails(historyClient.id);
-        setCrmDetails(details);
+        if (details) {
+          setCrmDetails(details);
+        }
       }
     });
   };
 
   const handleDeleteClinicalRecord = (recordId: string) => {
     if (!confirm("¿Estás seguro de que deseas eliminar esta ficha clínica?")) return;
+
+    // Instant optimistic removal
+    setCrmDetails((prev: any) =>
+      prev
+        ? {
+            ...prev,
+            clinicalRecords: prev.clinicalRecords.filter((r: any) => r.id !== recordId),
+          }
+        : null
+    );
+
     startTransition(async () => {
       const res = await deleteClinicalRecord(recordId);
       if (res.error) {
         alert(res.error);
       } else if (historyClient) {
         const details = await getClientCRMDetails(historyClient.id);
-        setCrmDetails(details);
+        if (details) {
+          setCrmDetails(details);
+        }
       }
     });
   };
@@ -213,20 +291,20 @@ export function ClientsTable({ initialClients }: Props) {
   return (
     <div className="w-full space-y-6">
       
-      {/* Search & Actions Header (Refractive Card) */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between border border-white/20 bg-white/80 p-5 rounded-3xl shadow-md shadow-slate-100/50 dark:border-white/5 dark:bg-slate-900/80 dark:shadow-none backdrop-blur-xl transition-all duration-300">
+      {/* Search & Actions Header */}
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between border border-black/[0.06] bg-white/80 backdrop-blur-2xl p-4 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
         
-        {/* Search Input (Precision Input) */}
+        {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <input
             type="text"
             placeholder="Buscar por nombre, correo o teléfono..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white/80 py-3.5 pl-10 pr-4 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] transition-all shadow-xs"
+            className="w-full rounded-xl border border-black/[0.08] bg-white py-2 pl-9 pr-4 text-xs font-medium text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all placeholder-[#86868B] shadow-xs"
           />
           <svg
-            className="absolute left-3.5 top-4 h-4.5 w-4.5 text-slate-450 dark:text-slate-500"
+            className="absolute left-3 top-2.5 h-4 w-4 text-[#86868B]"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -237,44 +315,44 @@ export function ClientsTable({ initialClients }: Props) {
           </svg>
         </div>
 
-        {/* Add Button (Blue Glass Button) */}
+        {/* Add Button */}
         <button
           onClick={openCreate}
           type="button"
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#1A73E8] px-6 py-3.5 text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:bg-[#005bbf] hover:shadow-lg active:scale-98 transition-all cursor-pointer select-none"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0062CC] px-4 py-2.5 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(0,122,255,0.25)] active:scale-[0.98] transition-all cursor-pointer select-none"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.8">
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          <span>Agregar Cliente</span>
+          <span>Agregar {labels.client}</span>
         </button>
       </div>
 
-      {/* Datatable Card (Refractive Card container) */}
-      <div className="bg-white/90 border border-slate-200 rounded-[32px] dark:bg-slate-900/90 dark:border-slate-800 shadow-lg shadow-slate-100/50 dark:shadow-none w-full overflow-hidden backdrop-blur-xl">
+      {/* Datatable Card */}
+      <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] w-full overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-slate-100/50 bg-slate-50/20 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:border-slate-800/20 dark:bg-slate-950/10 dark:text-slate-500 select-none">
-                <th className="px-6 py-4">Cliente</th>
-                <th className="px-6 py-4">Correo Electrónico</th>
-                <th className="px-6 py-4">Teléfono Móvil</th>
-                <th className="px-6 py-4">Notas</th>
-                <th className="px-6 py-4">Fecha de Registro</th>
-                <th className="px-6 py-4 text-right">Acciones</th>
+              <tr className="border-b border-[#E5E5EA]/60 bg-[#F5F5F7]/50 text-[11px] font-semibold uppercase tracking-wider text-[#86868B] select-none">
+                <th className="px-5 py-3.5">{labels.client}</th>
+                <th className="px-5 py-3.5">Correo Electrónico</th>
+                <th className="px-5 py-3.5">Teléfono Móvil</th>
+                <th className="px-5 py-3.5">Notas</th>
+                <th className="px-5 py-3.5">Fecha de Registro</th>
+                <th className="px-5 py-3.5 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/20 text-xs">
+            <tbody className="divide-y divide-[#E5E5EA]/50 text-xs">
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-450 dark:text-slate-555 select-none">
-                    <div className="flex flex-col items-center justify-center gap-2.5">
-                      <svg className="h-8 w-8 text-slate-300 dark:text-slate-700 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <td colSpan={6} className="px-6 py-12 text-center text-[#86868B] select-none">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <svg className="h-8 w-8 text-[#86868B]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      <p className="font-bold">No se encontraron clientes</p>
-                      <p className="text-[10px] max-w-xs leading-relaxed text-slate-400">Comienza agregando un cliente manualmente o mediante una nueva reserva en tu portal de citas.</p>
+                      <p className="font-semibold text-sm text-[#1D1D1F]">No se encontraron {labels.clients.toLowerCase()}</p>
+                      <p className="text-xs max-w-xs leading-relaxed text-[#86868B]">Comienza agregando un {labels.client.toLowerCase()} manualmente o mediante una nueva reserva en tu portal.</p>
                     </div>
                   </td>
                 </tr>
@@ -282,12 +360,12 @@ export function ClientsTable({ initialClients }: Props) {
                 filteredClients.map((client) => (
                   <tr
                     key={client.id}
-                    className="hover:bg-slate-50/20 dark:hover:bg-slate-950/10 transition-colors"
+                    className="hover:bg-[#F5F5F7]/50 transition-colors"
                   >
                     {/* Client Name Profile */}
-                    <td className="px-6 py-4.5 font-bold text-slate-800 dark:text-slate-100 font-heading">
+                    <td className="px-5 py-3.5 font-semibold text-[#1D1D1F] font-heading">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-xs">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#007AFF]/10 text-[10px] font-bold text-[#007AFF] shadow-xs">
                           {client.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
                         </div>
                         <span>{client.name}</span>
@@ -295,22 +373,22 @@ export function ClientsTable({ initialClients }: Props) {
                     </td>
 
                     {/* Email */}
-                    <td className="px-6 py-4.5 font-semibold text-slate-500 dark:text-slate-400">
+                    <td className="px-5 py-3.5 font-medium text-[#86868B]">
                       {client.email}
                     </td>
 
                     {/* Phone */}
-                    <td className="px-6 py-4.5 font-bold text-slate-700 dark:text-slate-350">
+                    <td className="px-5 py-3.5 font-semibold text-[#1D1D1F]">
                       {client.phone}
                     </td>
 
                     {/* Notes */}
-                    <td className="px-6 py-4.5 max-w-[200px] truncate text-slate-500 dark:text-slate-400 font-semibold">
-                      {client.notes || <span className="text-slate-300 dark:text-slate-700 italic">Sin observaciones</span>}
+                    <td className="px-5 py-3.5 max-w-[200px] truncate text-[#86868B] font-normal">
+                      {client.notes || <span className="text-[#86868B]/50 italic">Sin observaciones</span>}
                     </td>
 
                     {/* Registration Date */}
-                    <td className="px-6 py-4.5 text-slate-450 dark:text-slate-500 font-semibold">
+                    <td className="px-5 py-3.5 text-[#86868B] font-medium">
                       {new Date(client.createdAt).toLocaleDateString("es", {
                         day: "2-digit",
                         month: "short",
@@ -318,16 +396,16 @@ export function ClientsTable({ initialClients }: Props) {
                       })}
                     </td>
 
-                    {/* Actions (Outlined Circle Action Buttons) */}
-                    <td className="px-6 py-4.5 text-right space-x-1.5 whitespace-nowrap">
+                    {/* Actions */}
+                    <td className="px-5 py-3.5 text-right space-x-1.5 whitespace-nowrap">
                       {/* History Button */}
                       <button
                         onClick={() => openHistory(client)}
                         type="button"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/60 bg-white/50 text-slate-600 hover:bg-[#1A73E8] hover:text-white dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-400 dark:hover:bg-[#1A73E8] dark:hover:text-white transition-all cursor-pointer"
-                        title="Ver historial de citas"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-[#86868B] hover:bg-[#007AFF] hover:text-white hover:border-[#007AFF] active:scale-[0.95] transition-all cursor-pointer shadow-xs"
+                        title="Ver historial y expediente"
                       >
-                        <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </button>
@@ -336,9 +414,10 @@ export function ClientsTable({ initialClients }: Props) {
                       <button
                         onClick={() => openEdit(client)}
                         type="button"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/60 bg-white/50 text-slate-600 hover:bg-[#1A73E8] hover:text-white dark:border-slate-800 dark:bg-slate-955/50 dark:text-slate-400 dark:hover:bg-[#1A73E8] dark:hover:text-white transition-all cursor-pointer"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-[#86868B] hover:bg-[#007AFF] hover:text-white hover:border-[#007AFF] active:scale-[0.95] transition-all cursor-pointer shadow-xs"
+                        title="Editar datos"
                       >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                       </button>
@@ -347,9 +426,10 @@ export function ClientsTable({ initialClients }: Props) {
                       <button
                         onClick={() => setIsDeleteConfirmOpen(client.id)}
                         type="button"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/60 bg-white/50 text-slate-600 hover:bg-red-50 hover:text-white dark:border-slate-800 dark:bg-slate-955/50 dark:text-slate-400 dark:hover:bg-red-500 dark:hover:text-white transition-all cursor-pointer"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-black/[0.08] bg-white text-[#86868B] hover:bg-[#FF3B30] hover:text-white hover:border-[#FF3B30] active:scale-[0.95] transition-all cursor-pointer shadow-xs"
+                        title="Eliminar cliente"
                       >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
@@ -361,307 +441,379 @@ export function ClientsTable({ initialClients }: Props) {
           </table>
         </div>
       </div>
-          {/* CREATE CLIENT MODAL */}
+          {/* CREATE CLIENT MODAL (Apple Design System Inset Grouped Cards) */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-md">
-          <form
-            onSubmit={handleCreate}
-            className="w-full max-w-lg overflow-hidden border border-white/20 bg-white/95 p-8 shadow-xl dark:border-white/5 dark:bg-slate-900/95 backdrop-blur-xl rounded-[32px] animate-fade-in"
+        <div 
+          onClick={() => setIsCreateOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col overflow-hidden rounded-[28px] border border-black/[0.08] bg-white/95 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.16)] animate-in zoom-in-95 duration-200"
           >
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-150 font-heading">
-              Registrar Nuevo Cliente
-            </h3>
-            <p className="mt-1 text-xs font-semibold text-slate-450 dark:text-slate-500">
-              Ingresa los datos del contacto
-            </p>
-
-            {formError && (
-              <div className="mt-4 rounded-2xl border border-red-200/50 bg-red-50/50 px-4 py-3 text-xs font-bold text-red-750 dark:border-red-900/30 dark:bg-red-955/20 dark:text-red-400 backdrop-blur-xs animate-pulse">
-                {formError}
-              </div>
-            )}
-
-            <div className="mt-6 space-y-4">
-              {/* Name */}
+            {/* 1. STICKY HEADER */}
+            <div className="p-5 sm:p-6 pb-4 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex items-center justify-between">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-550 dark:text-slate-400">
-                  Nombre Completo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Carlos Mendoza"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                />
+                <h3 className="text-base sm:text-lg font-bold text-[#1D1D1F] font-heading leading-tight">
+                  Registrar {labels.client}
+                </h3>
+                <p className="mt-0.5 text-xs font-medium text-[#86868B]">
+                  Ingresa los datos de contacto de tu {labels.client.toLowerCase()}
+                </p>
               </div>
-
-              {/* Email & Phone */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-550 dark:text-slate-400">
-                    Correo Electrónico *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="carlos@correo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                    Teléfono Móvil *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="55790854"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                  Notas u Observaciones (Opcional)
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Detalles adicionales, recordatorios o preferencias..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs resize-none"
-                />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-8 flex justify-end gap-3">
               <button
                 onClick={() => setIsCreateOpen(false)}
                 type="button"
-                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 cursor-pointer transition-all"
+                className="h-8 w-8 rounded-full bg-black/[0.04] hover:bg-black/[0.08] active:scale-95 flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] transition-all cursor-pointer shrink-0"
               >
-                Cancelar
-              </button>
-              <button
-                disabled={pending}
-                type="submit"
-                className="rounded-full bg-[#1A73E8] px-6 py-3 text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:bg-[#005bbf] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {pending ? "Guardando..." : "Registrar Cliente"}
+                <X className="h-4 w-4" />
               </button>
             </div>
-          </form>
+
+            <form onSubmit={handleCreate} className="flex flex-col flex-1 overflow-hidden">
+              {/* 2. SCROLLABLE BODY */}
+              <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+                {formError && (
+                  <div className="rounded-2xl border border-red-200/60 bg-red-50/80 p-3.5 text-xs font-semibold text-[#FF3B30]">
+                    {formError}
+                  </div>
+                )}
+
+                {/* CARD 1: INFORMACIÓN PERSONAL */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                    Datos de Contacto
+                  </p>
+
+                  {/* Name */}
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                      Nombre Completo <span className="text-[#FF3B30]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Carlos Mendoza"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                    />
+                  </div>
+
+                  {/* Email & Phone */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                        Correo Electrónico <span className="text-[#FF3B30]">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="carlos@correo.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                        Teléfono Móvil <span className="text-[#FF3B30]">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="55790854"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 2: OBSERVACIONES */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                    Observaciones y Preferencias
+                  </p>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                      Notas u Observaciones (Opcional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Detalles adicionales, recordatorios o preferencias..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. STICKY FOOTER */}
+              <div className="p-4 sm:p-5 border-t border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex flex-row gap-3 justify-end">
+                <button
+                  onClick={() => setIsCreateOpen(false)}
+                  type="button"
+                  className="flex-1 sm:flex-none sm:min-w-[120px] rounded-xl border border-black/[0.08] bg-[#F2F2F7] py-2.5 px-5 text-xs font-semibold text-[#1D1D1F] hover:bg-[#E5E5EA] active:scale-[0.98] transition-all text-center cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={pending}
+                  type="submit"
+                  className="flex-1 sm:flex-none sm:min-w-[160px] rounded-xl bg-[#007AFF] py-2.5 px-6 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(0,122,255,0.25)] hover:bg-[#0062CC] active:scale-[0.98] transition-all disabled:opacity-50 text-center cursor-pointer"
+                >
+                  {pending ? "Guardando..." : `Registrar ${labels.client}`}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* EDIT CLIENT MODAL */}
+      {/* EDIT CLIENT MODAL (Apple Design System Inset Grouped Cards) */}
       {selectedClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-955/30 p-4 backdrop-blur-md">
-          <form
-            onSubmit={handleUpdate}
-            className="w-full max-w-lg overflow-hidden border border-white/20 bg-white/95 p-8 shadow-xl dark:border-white/5 dark:bg-slate-900/95 backdrop-blur-xl rounded-[32px] animate-fade-in"
+        <div 
+          onClick={() => setSelectedClient(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col overflow-hidden rounded-[28px] border border-black/[0.08] bg-white/95 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.16)] animate-in zoom-in-95 duration-200"
           >
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-150 font-heading">
-              Modificar Ficha de Cliente
-            </h3>
-            <p className="mt-1 text-xs font-semibold text-slate-450 dark:text-slate-500">
-              Edita el contacto registrado
-            </p>
-
-            {formError && (
-              <div className="mt-4 rounded-2xl border border-red-200/50 bg-red-50/50 px-4 py-3 text-xs font-bold text-red-750 dark:border-red-900/30 dark:bg-red-955/20 dark:text-red-400 backdrop-blur-xs animate-pulse">
-                {formError}
-              </div>
-            )}
-
-            <div className="mt-6 space-y-4">
-              {/* Name */}
+            {/* 1. STICKY HEADER */}
+            <div className="p-5 sm:p-6 pb-4 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex items-center justify-between">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                  Nombre Completo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Carlos Mendoza"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                />
+                <h3 className="text-base sm:text-lg font-bold text-[#1D1D1F] font-heading leading-tight">
+                  Modificar datos de {labels.client}
+                </h3>
+                <p className="mt-0.5 text-xs font-medium text-[#86868B]">
+                  Edita la información de tu {labels.client.toLowerCase()}
+                </p>
               </div>
-
-              {/* Email & Phone */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                    Correo Electrónico *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="carlos@correo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                    Teléfono Móvil *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="55790854"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                  />
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                  Notas u Observaciones (Opcional)
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Detalles adicionales, recordatorios o preferencias..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs resize-none"
-                />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-8 flex justify-end gap-3">
               <button
                 onClick={() => setSelectedClient(null)}
                 type="button"
-                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 cursor-pointer transition-all"
+                className="h-8 w-8 rounded-full bg-black/[0.04] hover:bg-black/[0.08] active:scale-95 flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] transition-all cursor-pointer shrink-0"
               >
-                Cancelar
-              </button>
-              <button
-                disabled={pending}
-                type="submit"
-                className="rounded-full bg-[#1A73E8] px-6 py-3 text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:bg-[#005bbf] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {pending ? "Guardando..." : "Guardar Cambios"}
+                <X className="h-4 w-4" />
               </button>
             </div>
-          </form>
+
+            <form onSubmit={handleUpdate} className="flex flex-col flex-1 overflow-hidden">
+              {/* 2. SCROLLABLE BODY */}
+              <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+                {formError && (
+                  <div className="rounded-2xl border border-red-200/60 bg-red-50/80 p-3.5 text-xs font-semibold text-[#FF3B30]">
+                    {formError}
+                  </div>
+                )}
+
+                {/* CARD 1: INFORMACIÓN PERSONAL */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                    Datos de Contacto
+                  </p>
+
+                  {/* Name */}
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                      Nombre Completo <span className="text-[#FF3B30]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Carlos Mendoza"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                    />
+                  </div>
+
+                  {/* Email & Phone */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                        Correo Electrónico <span className="text-[#FF3B30]">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="carlos@correo.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                        Teléfono Móvil <span className="text-[#FF3B30]">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="55790854"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 2: OBSERVACIONES */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                    Observaciones y Preferencias
+                  </p>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                      Notas u Observaciones (Opcional)
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder="Detalles adicionales, recordatorios o preferencias..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. STICKY FOOTER */}
+              <div className="p-4 sm:p-5 border-t border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex flex-row gap-3 justify-end">
+                <button
+                  onClick={() => setSelectedClient(null)}
+                  type="button"
+                  className="flex-1 sm:flex-none sm:min-w-[120px] rounded-xl border border-black/[0.08] bg-[#F2F2F7] py-2.5 px-5 text-xs font-semibold text-[#1D1D1F] hover:bg-[#E5E5EA] active:scale-[0.98] transition-all text-center cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={pending}
+                  type="submit"
+                  className="flex-1 sm:flex-none sm:min-w-[160px] rounded-xl bg-[#007AFF] py-2.5 px-6 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(0,122,255,0.25)] hover:bg-[#0062CC] active:scale-[0.98] transition-all disabled:opacity-50 text-center cursor-pointer"
+                >
+                  {pending ? "Guardando..." : "Guardar Cambios"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* DELETE CONFIRMATION DIALOG */}
+      {/* DELETE CONFIRMATION DIALOG (Responsive Apple Design Layout) */}
       {isDeleteConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md border border-white/20 bg-white/95 p-8 shadow-xl dark:border-white/5 dark:bg-slate-900/95 backdrop-blur-xl rounded-[32px] animate-scale-up">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400">
+        <div 
+          onClick={() => setIsDeleteConfirmOpen(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md border border-black/[0.08] bg-white/95 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.16)] backdrop-blur-2xl rounded-[28px] animate-in zoom-in-95 duration-200"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#FF3B30]/10 text-[#FF3B30]">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h4 className="mt-4 text-xl font-bold text-slate-800 dark:text-slate-150 font-heading">
-              ¿Eliminar ficha de cliente?
+            <h4 className="mt-3.5 text-lg font-bold text-[#1D1D1F] font-heading leading-tight">
+              ¿Eliminar {labels.client.toLowerCase()}?
             </h4>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
-              Esta acción no puede deshacerse. El registro se eliminará permanentemente de tu base de datos de contactos.
+            <p className="mt-1.5 text-xs text-[#86868B] leading-relaxed font-normal">
+              Esta acción no puede deshacerse. Se eliminará permanentemente de tu base de datos de {labels.clients.toLowerCase()}.
             </p>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-2.5 pt-4 border-t border-black/[0.06]">
               <button
                 onClick={() => setIsDeleteConfirmOpen(null)}
                 type="button"
-                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 cursor-pointer transition-all"
+                className="rounded-xl border border-black/[0.08] bg-[#F2F2F7] px-4 py-2 text-xs font-semibold text-[#1D1D1F] hover:bg-[#E5E5EA] active:scale-[0.98] transition-all cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 disabled={pending}
                 onClick={() => handleDelete(isDeleteConfirmOpen)}
-                className="rounded-full bg-red-600 px-6 py-3 text-xs font-bold text-white shadow-md shadow-red-500/10 hover:bg-red-700 transition-all disabled:opacity-50 cursor-pointer"
+                className="rounded-xl bg-[#FF3B30] px-5 py-2 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(255,59,48,0.25)] hover:bg-[#D70015] active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
               >
-                {pending ? "Eliminando..." : "Eliminar Cliente"}
+                {pending ? "Eliminando..." : `Eliminar ${labels.client}`}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* CLIENT CRM & CLINICAL RECORDS PORTAL */}
+      {/* CLIENT CRM & CLINICAL RECORDS PORTAL (Responsive Apple Design 3-Tier Layout) */}
       {historyClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-md">
-          <div className="w-full max-w-4xl overflow-hidden border border-white/20 bg-white/95 p-8 shadow-xl dark:border-white/5 dark:bg-slate-900/95 backdrop-blur-xl rounded-[32px] flex flex-col max-h-[90vh] animate-scale-up">
-            
-            {/* Header */}
-            <div className="flex justify-between items-start border-b border-slate-200/40 dark:border-slate-800/60 pb-6">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-150 font-heading">
-                  Expediente y CRM de Cliente
-                </h3>
-                <p className="mt-1 text-xs font-semibold text-slate-450 dark:text-slate-500">
-                  {historyClient.name} · {historyClient.email} · {historyClient.phone}
-                </p>
+        <div 
+          onClick={() => setHistoryClient(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-4xl max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col overflow-hidden rounded-[28px] border border-black/[0.08] bg-white/95 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.16)] animate-in zoom-in-95 duration-200"
+          >
+            {/* 1. STICKY HEADER */}
+            <div className="p-5 sm:p-6 pb-3.5 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold text-[#1D1D1F] font-heading leading-tight truncate">
+                    Expediente y CRM de {labels.client}
+                  </h3>
+                  <p className="mt-0.5 text-xs font-medium text-[#86868B] truncate">
+                    {historyClient.name} · {historyClient.email} · {historyClient.phone}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setHistoryClient(null)}
+                  className="h-8 w-8 rounded-full bg-black/[0.04] hover:bg-black/[0.08] active:scale-95 flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] transition-all cursor-pointer shrink-0 ml-3"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setHistoryClient(null)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/40 text-slate-500 hover:bg-[#1A73E8] hover:text-white dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-400 dark:hover:bg-[#1A73E8] dark:hover:text-white transition-all cursor-pointer"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+
+              {/* Tab Navigation (Apple Segmented Style) */}
+              {rubroConfig.enableClinicalRecords && (
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setCrmTab("history")}
+                    className={`py-1.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      crmTab === "history"
+                        ? "bg-[#007AFF] text-white shadow-xs"
+                        : "bg-[#F2F2F7] text-[#86868B] hover:text-[#1D1D1F]"
+                    }`}
+                  >
+                    Historial y Pagos
+                  </button>
+                  <button
+                    onClick={() => setCrmTab("clinical")}
+                    className={`py-1.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      crmTab === "clinical"
+                        ? "bg-[#007AFF] text-white shadow-xs"
+                        : "bg-[#F2F2F7] text-[#86868B] hover:text-[#1D1D1F]"
+                    }`}
+                  >
+                    Expediente Clínico / Notas
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Tab Navigation */}
-            <div className="flex border-b border-slate-200/40 dark:border-slate-800/60 mt-6">
-              <button
-                onClick={() => setCrmTab("history")}
-                className={`py-3 px-5 border-b-2 text-xs font-bold transition-all cursor-pointer font-heading ${
-                  crmTab === "history"
-                    ? "border-[#1A73E8] text-[#1A73E8]"
-                    : "border-transparent text-slate-450 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
-              >
-                Historial y Pagos
-              </button>
-              <button
-                onClick={() => setCrmTab("clinical")}
-                className={`py-3 px-5 border-b-2 text-xs font-bold transition-all cursor-pointer font-heading ${
-                  crmTab === "clinical"
-                    ? "border-[#1A73E8] text-[#1A73E8]"
-                    : "border-transparent text-slate-450 hover:text-slate-700 dark:hover:text-slate-300"
-                }`}
-              >
-                Expediente Clínico / Notas
-              </button>
-            </div>
-
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto py-6 pr-1 min-h-[350px]">
+            {/* 2. SCROLLABLE BODY */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 overscroll-contain space-y-4">
               {loadingHistory ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-450 dark:text-slate-550">
-                  <svg className="h-7 w-7 animate-spin text-[#1A73E8] mb-2.5" fill="none" viewBox="0 0 24 24">
+                <div className="flex flex-col items-center justify-center py-20 text-[#86868B]">
+                  <svg className="h-6 w-6 animate-spin text-[#007AFF] mb-2.5" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Cargando expediente del cliente...</p>
+                  <p className="text-xs font-medium text-[#86868B]">Cargando expediente de {labels.client.toLowerCase()}...</p>
                 </div>
               ) : !crmDetails ? (
-                <div className="text-center py-20 text-slate-400">
+                <div className="text-center py-20 text-xs font-medium text-[#86868B]">
                   No se pudo cargar el expediente.
                 </div>
               ) : (
@@ -669,42 +821,42 @@ export function ClientsTable({ initialClients }: Props) {
                   {/* TAB 1: HISTORY & PAYMENTS */}
                   {crmTab === "history" && (
                     <div className="space-y-6 animate-fade-in">
-                      {/* CRM Metrics Grid (Luminous Glassmorphism Refractive Cards) */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="p-5 rounded-[24px] border border-white/20 bg-white/40 shadow-xs dark:bg-slate-900/20 dark:border-white/5 backdrop-blur-md">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-heading">Total Reservas</p>
-                          <p className="mt-1.5 text-2xl font-bold text-slate-800 dark:text-slate-100 font-heading">{crmDetails.metrics.totalBooked}</p>
+                      {/* CRM Metrics Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="p-3.5 rounded-xl border border-black/[0.06] bg-[#F5F5F7]/80">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">Total Reservas</p>
+                          <p className="mt-1 text-2xl font-bold text-[#1D1D1F] tracking-tight">{crmDetails.metrics.totalBooked}</p>
                         </div>
-                        <div className="p-5 rounded-[24px] border border-white/20 bg-white/40 shadow-xs dark:bg-slate-900/20 dark:border-white/5 backdrop-blur-md">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-heading">Asistencias</p>
-                          <p className="mt-1.5 text-2xl font-bold text-slate-800 dark:text-slate-100 font-heading">
-                            {crmDetails.metrics.totalAttended} <span className="text-xs font-semibold text-slate-450 dark:text-slate-550">({crmDetails.metrics.attendanceRate}%)</span>
+                        <div className="p-3.5 rounded-xl border border-black/[0.06] bg-[#F5F5F7]/80">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">Asistencias</p>
+                          <p className="mt-1 text-2xl font-bold text-[#1D1D1F] tracking-tight">
+                            {crmDetails.metrics.totalAttended} <span className="text-xs font-medium text-[#86868B]">({crmDetails.metrics.attendanceRate}%)</span>
                           </p>
                         </div>
-                        <div className="p-5 rounded-[24px] border border-white/20 bg-white/40 shadow-xs dark:bg-slate-900/20 dark:border-white/5 backdrop-blur-md">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-heading">Facturación Cobrada</p>
-                          <p className="mt-1.5 text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-heading">${crmDetails.metrics.totalPaid}</p>
+                        <div className="p-3.5 rounded-xl border border-black/[0.06] bg-[#F5F5F7]/80">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">Facturación Cobrada</p>
+                          <p className="mt-1 text-2xl font-bold text-[#34C759] tracking-tight">${crmDetails.metrics.totalPaid}</p>
                         </div>
-                        <div className="p-5 rounded-[24px] border border-white/20 bg-white/40 shadow-xs dark:bg-slate-900/20 dark:border-white/5 backdrop-blur-md">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-heading">Servicio Favorito</p>
-                          <p className="mt-1.5 text-sm font-bold text-slate-700 dark:text-slate-300 truncate max-w-full leading-tight h-5 flex items-center">
+                        <div className="p-3.5 rounded-xl border border-black/[0.06] bg-[#F5F5F7]/80">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">Servicio Favorito</p>
+                          <p className="mt-1.5 text-xs font-bold text-[#1D1D1F] truncate max-w-full leading-tight h-5 flex items-center">
                             {crmDetails.metrics.favoriteService}
                           </p>
                         </div>
                       </div>
 
                       {/* Appointment List */}
-                      <div className="mt-8">
-                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4 font-heading">
-                          Bitácora de Citas y Pagos
+                      <div className="mt-6">
+                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B] mb-3">
+                          Bitácora de {labels.appointments} y Pagos
                         </h4>
 
                         {crmDetails.appointments.length === 0 ? (
-                           <p className="text-xs text-slate-500 dark:text-slate-450 text-center py-8">
-                            No hay citas registradas para este cliente.
+                           <p className="text-xs text-[#86868B] text-center py-8">
+                            No hay {labels.appointments.toLowerCase()} registradas para este {labels.client.toLowerCase()}.
                           </p>
                         ) : (
-                          <div className="space-y-3.5">
+                          <div className="space-y-2.5">
                             {crmDetails.appointments.map((app: any) => {
                               const start = new Date(app.startTime);
                               const end = new Date(app.endTime);
@@ -724,13 +876,13 @@ export function ClientsTable({ initialClients }: Props) {
                                 hour12: false,
                               })}`;
 
-                              let badgeColor = "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/30";
+                              let badgeColor = "bg-amber-500/10 text-[#FF9500]";
                               let label = "Pendiente";
                               if (app.status === "CONFIRMADA") {
-                                badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/30";
+                                badgeColor = "bg-[#007AFF]/10 text-[#007AFF]";
                                 label = "Confirmada";
                               } else if (app.status === "CANCELADA") {
-                                badgeColor = "bg-red-50 text-red-700 border-red-200 dark:bg-red-955/30 dark:text-red-400 dark:border-red-900/30";
+                                badgeColor = "bg-[#86868B]/10 text-[#86868B]";
                                 label = "Cancelada";
                               }
 
@@ -739,51 +891,49 @@ export function ClientsTable({ initialClients }: Props) {
                               return (
                                 <div
                                   key={app.id}
-                                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[24px] border border-white/20 bg-white/30 dark:border-white/5 dark:bg-slate-900/20 hover:bg-white/50 dark:hover:bg-slate-900/30 transition-all shadow-xs"
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-black/[0.06] bg-white hover:border-[#007AFF]/20 transition-all shadow-xs"
                                 >
                                   {/* Appointment Info */}
-                                  <div className="space-y-1.5 flex-1">
+                                  <div className="space-y-1 flex-1">
                                     <div className="flex items-center gap-2">
-                                      <p className="text-sm font-bold text-slate-800 dark:text-slate-150 capitalize font-heading">
+                                      <p className="text-sm font-semibold text-[#1D1D1F] capitalize font-heading">
                                         {formattedDate}
                                       </p>
-                                      <span className={`px-2.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-wider ${badgeColor}`}>
+                                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${badgeColor}`}>
                                         {label}
                                       </span>
                                     </div>
-                                    <p className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                                    <p className="text-xs font-medium text-[#86868B]">
                                       ⏱️ {timeStr} hs
                                     </p>
                                     
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px] text-slate-500 dark:text-slate-450 font-semibold">
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-[#86868B]">
                                       {app.serviceName && (
-                                        <span>⚙️ Servicio: <strong className="text-slate-700 dark:text-slate-300">{app.serviceName}</strong></span>
+                                        <span>⚙️ Servicio: <strong className="text-[#1D1D1F] font-semibold">{app.serviceName}</strong></span>
                                       )}
                                       {app.locationName && (
-                                        <span>📍 Sede: <strong className="text-slate-700 dark:text-slate-300">{app.locationName}</strong></span>
+                                        <span>📍 Sede: <strong className="text-[#1D1D1F] font-semibold">{app.locationName}</strong></span>
                                       )}
                                       {app.staffName && (
-                                        <span>👤 Especialista: <strong className="text-slate-700 dark:text-slate-300">{app.staffName}</strong></span>
+                                        <span>👤 Especialista: <strong className="text-[#1D1D1F] font-semibold">{app.staffName}</strong></span>
                                       )}
                                     </div>
                                   </div>
 
                                   {/* Pricing and Invoicing actions */}
-                                  <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 border-slate-200/50 pt-2.5 sm:pt-0 shrink-0">
+                                  <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 border-black/[0.04] pt-2.5 sm:pt-0 shrink-0">
                                     <div className="text-right">
-                                      <p className="text-xs font-bold text-slate-850 dark:text-slate-100 font-heading">
+                                      <p className="text-xs font-bold text-[#1D1D1F] font-heading">
                                         ${app.price || 0}
                                       </p>
                                       
-                                      {/* Payment State capsule inspired by System States mockup */}
                                       {isPaid ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50/50 border border-blue-200/50 px-2 py-0.5 text-[8px] font-bold text-[#1A73E8] dark:bg-blue-950/20 dark:border-blue-900/30 dark:text-blue-400">
-                                          <span className="flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[#1A73E8] text-white text-[6px] font-black">✓</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-[#34C759]/10 px-2 py-0.5 text-[9px] font-semibold text-[#34C759]">
+                                          <span className="flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[#34C759] text-white text-[7px] font-bold">✓</span>
                                           PAGADO
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50/50 border border-amber-200/50 px-2 py-0.5 text-[8px] font-bold text-amber-600 dark:bg-amber-955/20 dark:border-amber-900/30 dark:text-amber-400">
-                                          <span className="flex h-2.5 w-2.5 items-center justify-center rounded-full bg-amber-500 text-white text-[6px] font-black animate-pulse">…</span>
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-[#FF9500]">
                                           PENDIENTE
                                         </span>
                                       )}
@@ -794,10 +944,10 @@ export function ClientsTable({ initialClients }: Props) {
                                       onClick={() => togglePaymentStatus(app.id, app.paymentStatus, app.price)}
                                       disabled={pending}
                                       type="button"
-                                      className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-[10px] font-bold uppercase tracking-wider border cursor-pointer transition-all ${
+                                      className={`inline-flex items-center justify-center rounded-xl px-3.5 py-1.5 text-xs font-semibold cursor-pointer active:scale-[0.98] transition-all ${
                                         isPaid
-                                          ? "bg-white/60 border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:bg-slate-950/40 dark:hover:text-red-450"
-                                          : "bg-[#1A73E8] border-transparent text-white hover:bg-[#005bbf] shadow-xs"
+                                          ? "bg-[#F2F2F7] border border-black/[0.06] text-[#1D1D1F] hover:bg-[#FF3B30]/10 hover:text-[#FF3B30]"
+                                          : "bg-[#007AFF] text-white hover:bg-[#0062CC] shadow-xs"
                                       }`}
                                     >
                                       {isPaid ? "Desmarcar Pago" : "Registrar Pago"}
@@ -812,11 +962,11 @@ export function ClientsTable({ initialClients }: Props) {
                     </div>
                   )}
 
-                  {crmTab === "clinical" && (
-                    <div className="space-y-6 animate-fade-in">
+                  {rubroConfig.enableClinicalRecords && crmTab === "clinical" && (
+                    <div className="space-y-5 animate-fade-in">
                       {/* Action Header */}
                       <div className="flex justify-between items-center">
-                        <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-550 font-heading">
+                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B]">
                           Expediente de Sesiones y Consentimientos
                         </h4>
                         <button
@@ -828,7 +978,7 @@ export function ClientsTable({ initialClients }: Props) {
                             setIsAddRecordOpen(!isAddRecordOpen);
                           }}
                           type="button"
-                          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 transition-all cursor-pointer shadow-xs"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-black/[0.08] bg-[#F2F2F7] hover:bg-[#E5E5EA] px-3.5 py-1.5 text-xs font-semibold text-[#1D1D1F] active:scale-[0.98] transition-all cursor-pointer"
                         >
                           {isAddRecordOpen ? "Cancelar" : "+ Nueva Ficha"}
                         </button>
@@ -836,86 +986,122 @@ export function ClientsTable({ initialClients }: Props) {
 
                       {/* Form inline to add a clinical record */}
                       {isAddRecordOpen && (
-                        <form onSubmit={handleAddClinicalRecord} className="p-6 rounded-[24px] border border-white/20 bg-white/40 dark:border-white/5 dark:bg-slate-900/20 space-y-4 animate-fade-in backdrop-blur-md">
-                          <h5 className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider font-heading">
-                            Nueva Entrada Médica / Estética
+                        <form onSubmit={handleAddClinicalRecord} className="p-5 rounded-2xl border border-black/[0.08] bg-white space-y-3.5 animate-fade-in shadow-xs">
+                          <h5 className="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider font-heading">
+                            {rubro === "PSICOLOGIA"
+                              ? "Nueva Nota de Sesión / Ficha Clínica"
+                              : rubro === "SALUD"
+                              ? "Nueva Entrada Médica / Registro"
+                              : "Nueva Entrada / Registro"}
                           </h5>
 
                           {recordError && (
-                            <div className="rounded-2xl border border-red-200/50 bg-red-50/50 px-4 py-3 text-xs font-bold text-red-750 dark:border-red-900/30 dark:bg-red-955/20 dark:text-red-300">
+                            <div className="rounded-xl border border-red-200/60 bg-red-50/80 px-3.5 py-2 text-xs font-semibold text-[#FF3B30]">
                               {recordError}
                             </div>
                           )}
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div className="md:col-span-2">
-                              <label className="mb-1.5 block text-xs font-semibold text-slate-550 dark:text-slate-400">
+                              <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
                                 Título del Registro *
                               </label>
                               <input
                                 type="text"
                                 required
-                                placeholder="Ej. Control de evolución, Sesión láser"
+                                placeholder={
+                                  rubro === "PSICOLOGIA"
+                                    ? "Ej. Sesión inicial, Seguimiento semanal, Evaluación de ansiedad"
+                                    : rubro === "SALUD"
+                                    ? "Ej. Control médico, Revisión de análisis"
+                                    : "Ej. Control de evolución, Sesión de seguimiento"
+                                }
                                 value={recordTitle}
                                 onChange={(e) => setRecordTitle(e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
+                                className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
                               />
                             </div>
                             <div>
-                              <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
+                              <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
                                 Tipo de Ficha
                               </label>
                               <select
                                 value={recordType}
                                 onChange={(e) => setRecordType(e.target.value)}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-850 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs cursor-pointer"
+                                className="w-full rounded-xl border border-black/[0.08] bg-white px-3 py-2.5 text-xs font-medium text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] cursor-pointer shadow-xs"
                               >
-                                <option value="EVOLUCION" className="bg-white dark:bg-slate-900">Evolución</option>
-                                <option value="NOTA" className="bg-white dark:bg-slate-900">Nota de Sesión</option>
-                                <option value="CONSENTIMIENTO" className="bg-white dark:bg-slate-900">Consentimiento</option>
+                                <option value="EVOLUCION">Evolución</option>
+                                <option value="NOTA">Nota de Sesión</option>
+                                <option value="CONSENTIMIENTO">Consentimiento</option>
                               </select>
                             </div>
                           </div>
 
-                          <div>
-                            <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                              Notas Clínicas y Diagnóstico *
-                            </label>
+                           <div>
+                             <div className="flex items-center justify-between mb-1">
+                               <label className="block text-xs font-semibold text-[#1D1D1F]">
+                                 Notas Clínicas y Diagnóstico *
+                               </label>
+                               <button
+                                 type="button"
+                                 disabled={isGeneratingAiNote}
+                                 onClick={handleGenerateSoapNote}
+                                 className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold text-[#007AFF] bg-[#007AFF]/10 hover:bg-[#007AFF]/20 active:scale-[0.98] rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                                 title="Convierte lo escrito en este campo al formato clínico formal SOAP"
+                               >
+                                 {isGeneratingAiNote ? (
+                                   <>
+                                     <div className="w-3 h-3 border-2 border-[#007AFF]/30 border-t-[#007AFF] rounded-full animate-spin" />
+                                     <span>Estructurando con IA...</span>
+                                   </>
+                                 ) : (
+                                   <>
+                                     <span>🪄 Estructurar con IA</span>
+                                   </>
+                                 )}
+                               </button>
+                             </div>
                             <textarea
                               rows={4}
                               required
-                              placeholder="Describe la evolución, procedimientos realizados, observaciones del paciente, consentimiento obtenido..."
+                              placeholder={
+                                rubro === "PSICOLOGIA"
+                                  ? "Describe la evolución del paciente, estado emocional, temas tratados, técnicas aplicadas (TCC, relajación), tareas..."
+                                  : "Describe la evolución, procedimientos realizados, observaciones del paciente..."
+                              }
                               value={recordContent}
                               onChange={(e) => setRecordContent(e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs resize-none"
+                              className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs resize-none"
                             />
                           </div>
 
                           <div>
-                            <label className="mb-1.5 block text-xs font-semibold text-slate-555 dark:text-slate-400">
-                              URL del Adjunto / Consentimiento Firmado (Opcional)
+                            <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                              {rubro === "PSICOLOGIA"
+                                ? "URL de Test Psicológico / Consentimiento Firmado (Opcional)"
+                                : "URL del Adjunto / Consentimiento Firmado (Opcional)"}
                             </label>
                             <input
                               type="url"
                               placeholder="https://bucket.com/documento.pdf"
                               value={recordAttachmentUrl}
                               onChange={(e) => setRecordAttachmentUrl(e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
+                              className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
                             />
                           </div>
 
-                          <div className="flex justify-end gap-3 pt-2">
+                          <div className="flex justify-end gap-2.5 pt-2">
                             <button
                               onClick={() => setIsAddRecordOpen(false)}
                               type="button"
-                              className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 cursor-pointer transition-all"
+                              className="rounded-xl border border-black/[0.08] bg-[#F2F2F7] px-4 py-2 text-xs font-semibold text-[#1D1D1F] hover:bg-[#E5E5EA] transition-all cursor-pointer"
                             >
                               Cancelar
                             </button>
                             <button
                               disabled={pending}
                               type="submit"
-                              className="rounded-full bg-[#1A73E8] px-6 py-3 text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:bg-[#005bbf] transition-all disabled:opacity-50 cursor-pointer"
+                              className="rounded-xl bg-[#007AFF] px-5 py-2 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(0,122,255,0.25)] hover:bg-[#0062CC] active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
                             >
                               {pending ? "Guardando..." : "Guardar Ficha"}
                             </button>
@@ -924,17 +1110,17 @@ export function ClientsTable({ initialClients }: Props) {
                       )}
 
                       {/* Timeline */}
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {crmDetails.clinicalRecords.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-10 text-slate-400 dark:text-slate-500 gap-2 border border-dashed border-slate-200/60 dark:border-slate-800/60 rounded-[24px] p-6">
-                            <svg className="h-8 w-8 text-slate-300 dark:text-slate-700 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <div className="flex flex-col items-center justify-center py-10 text-[#86868B] gap-2 border border-dashed border-black/[0.08] rounded-2xl p-6">
+                            <svg className="h-8 w-8 text-[#86868B]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <p className="text-xs font-bold">No hay fichas clínicas en este expediente.</p>
-                            <p className="text-[10px] text-slate-450 max-w-xs text-center leading-relaxed">Crea notas de evolución y consentimientos firmados para llevar un registro profesional de tus sesiones.</p>
+                            <p className="text-xs font-semibold text-[#1D1D1F]">No hay fichas clínicas en este expediente.</p>
+                             <p className="text-xs text-[#86868B] max-w-xs text-center leading-relaxed">Crea notas de evolución y consentimientos firmados para llevar un registro profesional.</p>
                           </div>
                         ) : (
-                          <div className="relative border-l-2 border-slate-200/60 dark:border-slate-800/60 pl-6 ml-3 space-y-6">
+                          <div className="relative border-l-2 border-[#E5E5EA] pl-5 ml-2 space-y-4">
                             {crmDetails.clinicalRecords.map((record: any) => {
                               const dateStr = new Date(record.createdAt).toLocaleDateString("es-ES", {
                                 day: "numeric",
@@ -944,33 +1130,33 @@ export function ClientsTable({ initialClients }: Props) {
                                 minute: "2-digit",
                               });
 
-                              let colorTheme = "bg-blue-50/50 border border-blue-200/50 text-[#1A73E8] dark:bg-blue-955/20 dark:border-blue-900/30 dark:text-blue-400";
+                              let colorTheme = "bg-[#007AFF]/10 text-[#007AFF]";
                               let typeLabel = "Evolución";
                               if (record.type === "NOTA") {
-                                colorTheme = "bg-slate-50/50 border border-slate-200/50 text-slate-500 dark:bg-slate-900/20 dark:border-slate-800/30 dark:text-slate-400";
+                                colorTheme = "bg-[#86868B]/10 text-[#86868B]";
                                 typeLabel = "Nota de Sesión";
                               } else if (record.type === "CONSENTIMIENTO") {
-                                colorTheme = "bg-emerald-50/50 border border-emerald-200/50 text-emerald-750 dark:bg-emerald-955/20 dark:border-emerald-900/30 dark:text-emerald-400";
+                                colorTheme = "bg-[#34C759]/10 text-[#34C759]";
                                 typeLabel = "Consentimiento";
                               }
 
                               return (
                                 <div key={record.id} className="relative group">
                                   {/* Circle indicator */}
-                                  <div className="absolute -left-[31px] top-2 h-3.5 w-3.5 rounded-full border-2 border-white bg-slate-350 dark:border-slate-900 group-hover:bg-[#1A73E8] transition-all shadow-xs" />
+                                  <div className="absolute -left-[27px] top-2 h-3 w-3 rounded-full border-2 border-white bg-[#007AFF] transition-all shadow-xs" />
 
-                                  <div className="p-5 rounded-[24px] border border-white/20 bg-white/40 dark:border-white/5 dark:bg-slate-900/20 hover:bg-white/50 dark:hover:bg-slate-900/30 hover:shadow-xs transition-all space-y-3 shadow-xs">
+                                  <div className="p-4 rounded-xl border border-black/[0.06] bg-white hover:border-[#007AFF]/20 transition-all space-y-2 shadow-xs">
                                     <div className="flex items-start justify-between gap-4">
                                       <div>
                                         <div className="flex flex-wrap items-center gap-2">
-                                          <h5 className="font-bold text-sm text-slate-850 dark:text-slate-150 font-heading">
+                                          <h5 className="font-semibold text-sm text-[#1D1D1F] font-heading">
                                             {record.title}
                                           </h5>
-                                          <span className={`px-2.5 py-0.5 rounded-full border text-[8px] font-bold uppercase tracking-wider ${colorTheme}`}>
+                                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider ${colorTheme}`}>
                                             {typeLabel}
                                           </span>
                                         </div>
-                                        <p className="text-[10px] font-semibold text-slate-405 dark:text-slate-500 mt-1">
+                                        <p className="text-[10px] font-medium text-[#86868B] mt-0.5">
                                           📅 {dateStr}
                                         </p>
                                       </div>
@@ -979,7 +1165,7 @@ export function ClientsTable({ initialClients }: Props) {
                                         onClick={() => handleDeleteClinicalRecord(record.id)}
                                         disabled={pending}
                                         type="button"
-                                        className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-955/20 transition-all opacity-0 group-hover:opacity-100"
+                                        className="text-[#86868B] hover:text-[#FF3B30] cursor-pointer p-1 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
                                         title="Eliminar registro"
                                       >
                                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -989,13 +1175,13 @@ export function ClientsTable({ initialClients }: Props) {
                                     </div>
 
                                     {/* Record Notes text */}
-                                    <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-semibold whitespace-pre-wrap font-sans">
+                                    <p className="text-xs text-[#1D1D1F] leading-relaxed font-normal whitespace-pre-wrap">
                                       {record.content}
                                     </p>
 
                                     {/* Attachments links list */}
                                     {record.attachments && record.attachments.length > 0 && (
-                                      <div className="border-t border-slate-200/40 dark:border-slate-800/40 pt-3 flex items-center gap-1.5 text-[10px] font-bold text-[#1A73E8] dark:text-blue-400 font-heading">
+                                      <div className="border-t border-black/[0.04] pt-2 flex items-center gap-1.5 text-xs font-medium text-[#007AFF]">
                                         <span>📎 Adjunto:</span>
                                         {record.attachments.map((link: string, i: number) => (
                                           <a
@@ -1003,7 +1189,7 @@ export function ClientsTable({ initialClients }: Props) {
                                             href={link}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="underline break-all truncate max-w-[250px] hover:text-[#005bbf]"
+                                            className="underline break-all truncate max-w-[250px] hover:text-[#0056B3]"
                                           >
                                             {link.substring(link.lastIndexOf("/") + 1) || "Ver Documento"}
                                           </a>
@@ -1023,12 +1209,12 @@ export function ClientsTable({ initialClients }: Props) {
               )}
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-slate-200/40 dark:border-slate-800/60 pt-4 flex justify-end">
+            {/* 3. STICKY FOOTER */}
+            <div className="p-4 sm:p-5 border-t border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex justify-end">
               <button
                 type="button"
                 onClick={() => setHistoryClient(null)}
-                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-350 dark:hover:bg-slate-800 cursor-pointer transition-all"
+                className="rounded-xl border border-black/[0.08] bg-[#F2F2F7] hover:bg-[#E5E5EA] px-5 py-2 text-xs font-semibold text-[#1D1D1F] cursor-pointer active:scale-[0.98] transition-all"
               >
                 Cerrar
               </button>
@@ -1039,10 +1225,3 @@ export function ClientsTable({ initialClients }: Props) {
     </div>
   );
 }
-
-
-
-
-
-
-

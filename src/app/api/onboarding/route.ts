@@ -2,7 +2,7 @@ import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizeSlug, isValidSlug } from "@/lib/slug";
 import { getDefaultFormFields } from "@/lib/form-fields";
-import { Rubro } from "@prisma/client";
+import { RUBRO_CATALOG } from "@/lib/rubros";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -59,15 +59,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Ese enlace ya está en uso." }, { status: 400 });
     }
 
-    // Map rubro from wizard to database enum
-    let rubroDb: Rubro = Rubro.CONSULTORIA;
-    const mappedRubro = profile.rubro?.toLowerCase();
-    if (["medico", "psicologo", "nutricionista", "dentista", "fisioterapeuta"].includes(mappedRubro)) {
-      rubroDb = Rubro.SALUD;
-    } else if (["estetica"].includes(mappedRubro)) {
-      rubroDb = Rubro.BELLEZA;
+    // Map rubro from wizard to database string catalog
+    let rubroDb = "GENERAL";
+    const rawRubro = (profile.rubro || "").trim().toUpperCase();
+    if (RUBRO_CATALOG[rawRubro]) {
+      rubroDb = rawRubro;
     } else {
-      rubroDb = Rubro.CONSULTORIA;
+      const lower = rawRubro.toLowerCase();
+      if (["medico", "psicologo", "nutricionista", "dentista", "fisioterapeuta"].includes(lower)) {
+        rubroDb = "SALUD";
+      } else if (["estetica", "belleza"].includes(lower)) {
+        rubroDb = "BELLEZA";
+      } else if (["coach", "consultor", "consultoria"].includes(lower)) {
+        rubroDb = "CONSULTORIA";
+      } else if (["entrenador", "fitness"].includes(lower)) {
+        rubroDb = "FITNESS";
+      } else if (["educacion", "tutor"].includes(lower)) {
+        rubroDb = "EDUCACION";
+      } else if (["veterinaria", "veterinario"].includes(lower)) {
+        rubroDb = "VETERINARIA";
+      } else if (["abogado", "legal"].includes(lower)) {
+        rubroDb = "LEGAL";
+      }
     }
 
     // Parse weekly hours to array of DaySchedule
@@ -100,7 +113,7 @@ export async function POST(req: Request) {
     const description = profile.bio?.trim() || null;
 
     // Save configuration
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { id: authUser.id },
       create: {
         id: authUser.id,
@@ -141,6 +154,28 @@ export async function POST(req: Request) {
         },
       },
     });
+
+    // Seed suggested services from rubro catalog if user has no services
+    const existingServicesCount = await prisma.service.count({
+      where: { userId: user.id },
+    });
+
+    const rubroConfig = RUBRO_CATALOG[rubroDb];
+    if (existingServicesCount === 0 && rubroConfig?.suggestedServices) {
+      for (const s of rubroConfig.suggestedServices) {
+        await prisma.service.create({
+          data: {
+            userId: user.id,
+            name: s.name,
+            duration: s.duration,
+            price: s.price,
+            currency: "USD",
+            isActive: true,
+            onlineBooking: true,
+          },
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

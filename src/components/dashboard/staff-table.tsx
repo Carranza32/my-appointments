@@ -7,6 +7,7 @@ import {
   deleteStaff,
   type StaffDTO,
 } from "@/actions/personal";
+import { X } from "lucide-react";
 
 type Props = {
   initialStaff: StaffDTO[];
@@ -39,6 +40,8 @@ export function StaffTable({ initialStaff }: Props) {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [weeklyHours, setWeeklyHours] = useState<any>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const [slug, setSlug] = useState("");
+  const [isActive, setIsActive] = useState(true);
 
   const [pending, startTransition] = useTransition();
 
@@ -54,6 +57,8 @@ export function StaffTable({ initialStaff }: Props) {
     setPhone("");
     setDescription("");
     setAvatarUrl("");
+    setSlug("");
+    setIsActive(true);
     setFormError(null);
     setIsCreateOpen(true);
   };
@@ -65,6 +70,8 @@ export function StaffTable({ initialStaff }: Props) {
     setPhone(s.phone || "");
     setDescription(s.description || "");
     setAvatarUrl(s.avatarUrl || "");
+    setSlug(s.slug || "");
+    setIsActive(s.isActive);
     setWeeklyHours(JSON.parse(JSON.stringify(s.weeklyHours)));
     setActiveTab("info");
     setFormError(null);
@@ -75,7 +82,7 @@ export function StaffTable({ initialStaff }: Props) {
     setFormError(null);
 
     startTransition(async () => {
-      const res = await createStaff({ name, email, phone, description, avatarUrl });
+      const res = await createStaff({ name, email, phone, description, avatarUrl, slug });
       if (res.error) {
         setFormError(res.error);
       } else {
@@ -90,6 +97,8 @@ export function StaffTable({ initialStaff }: Props) {
           avatarUrl: avatarUrl || null,
           weeklyHours: {},
           createdAt: new Date().toISOString(),
+          slug: slug || null,
+          isActive: true,
         };
         setStaffList((prev) => [...prev, newMember].sort((a, b) => a.name.localeCompare(b.name)));
       }
@@ -109,6 +118,8 @@ export function StaffTable({ initialStaff }: Props) {
         description,
         avatarUrl,
         weeklyHours,
+        slug,
+        isActive,
       });
 
       if (res.error) {
@@ -126,6 +137,8 @@ export function StaffTable({ initialStaff }: Props) {
                     description: description || null,
                     avatarUrl: avatarUrl || null,
                     weeklyHours,
+                    slug: slug || null,
+                    isActive,
                   }
                 : s
             )
@@ -192,33 +205,34 @@ export function StaffTable({ initialStaff }: Props) {
         ranges: day.ranges.filter((_: any, i: number) => i !== rangeIdx),
       },
     });
-  };  return (
+  };
+
+  return (
     <div className="w-full space-y-6">
-      {/* Search & Actions Header (Refractive Card) */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between border border-white/20 bg-white/80 p-5 rounded-3xl shadow-md shadow-slate-100/50 dark:border-white/5 dark:bg-slate-900/80 dark:shadow-none backdrop-blur-xl transition-all duration-300">
-        
-        {/* Search Input (Precision Input) */}
+      {/* Search & Actions Header */}
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-4 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+        {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <input
             type="text"
             placeholder="Buscar por nombre, correo o teléfono..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pl-10 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
+            className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 pl-10 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-hidden focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all"
           />
-          <svg className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+          <svg className="absolute left-3.5 top-3 h-4 w-4 text-[#86868B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.3-4.3" />
           </svg>
         </div>
 
-        {/* Add Staff Button (Blue Glass capsule button) */}
+        {/* Add Staff Button */}
         <button
           onClick={openCreate}
           type="button"
-          className="rounded-full bg-[#1A73E8] px-6 py-3 text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:bg-[#005bbf] transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
+          className="rounded-xl bg-[#007AFF] hover:bg-[#0062cc] active:scale-[0.98] px-5 py-2.5 text-xs font-medium text-white shadow-xs transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -226,68 +240,82 @@ export function StaffTable({ initialStaff }: Props) {
         </button>
       </div>
 
-      {/* Datatable (Accentuated container background to stand out from luminous layout) */}
-      <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white/90 shadow-lg shadow-slate-100/50 dark:border-slate-800 dark:bg-slate-900/90 backdrop-blur-xl transition-all duration-300">
+      {/* Datatable */}
+      <div className="overflow-hidden rounded-2xl border border-black/[0.06] bg-white/80 backdrop-blur-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left">
             <thead>
-              <tr className="border-b border-slate-200/60 bg-slate-50/50 text-[10px] font-black uppercase tracking-widest text-slate-405 dark:border-slate-800/40 dark:bg-slate-950/20 dark:text-slate-500 font-heading">
-                <th className="px-6 py-4">Colaborador / Especialista</th>
-                <th className="px-6 py-4">Correo Electrónico</th>
-                <th className="px-6 py-4">Teléfono</th>
-                <th className="px-6 py-4 text-right">Acciones</th>
+              <tr className="border-b border-black/[0.06] bg-black/[0.01] text-[11px] font-medium uppercase tracking-wider text-[#86868B]">
+                <th className="px-6 py-3.5">Colaborador / Especialista</th>
+                <th className="px-6 py-3.5">Correo Electrónico</th>
+                <th className="px-6 py-3.5">Teléfono</th>
+                <th className="px-6 py-3.5 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100/70 dark:divide-slate-850/60 text-xs">
+            <tbody className="divide-y divide-black/[0.04] text-xs font-normal">
               {filteredStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-450 dark:text-slate-550">
+                  <td colSpan={4} className="px-6 py-12 text-center text-[#86868B]">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <svg className="h-8 w-8 text-slate-300 dark:text-slate-700 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      <p className="font-bold font-heading">No hay personal registrado</p>
-                      <p className="text-[10px] font-semibold max-w-xs leading-relaxed">Agrega a tus colaboradores para que tengan su propia agenda independiente y los clientes puedan reservar con ellos.</p>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-black/[0.03] text-[#86868B]">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <p className="font-semibold text-[#1D1D1F]">No hay personal registrado</p>
+                      <p className="text-xs text-[#86868B] max-w-xs leading-relaxed">Agrega a tus colaboradores para que tengan su propia agenda independiente y los clientes puedan reservar con ellos.</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filteredStaff.map((member) => (
-                  <tr key={member.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-950/10 transition-colors">
-                    <td className="px-6 py-4.5">
+                  <tr key={member.id} className="hover:bg-black/[0.015] transition-colors">
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 overflow-hidden shadow-inner border border-slate-200 dark:border-slate-700">
-                          {member.avatarUrl ? (
-                            <img src={member.avatarUrl} alt={member.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <span className="text-[10px] font-bold font-heading">
-                              {member.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
-                            </span>
-                          )}
+                        <div className="relative">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/[0.04] text-[#1D1D1F] overflow-hidden border border-black/[0.06]">
+                            {member.avatarUrl ? (
+                              <img src={member.avatarUrl} alt={member.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="text-[11px] font-semibold">
+                                {member.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <span className={`absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white ${
+                            member.isActive ? "bg-[#34C759]" : "bg-[#86868B]"
+                          }`} />
                         </div>
                         <div>
-                          <p className="font-extrabold text-slate-800 dark:text-slate-150 leading-tight font-heading">{member.name}</p>
-                          <p className="text-[9px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate max-w-[180px]">
-                            {member.description || "Sin descripción"}
-                          </p>
+                          <p className="font-medium text-[#1D1D1F] leading-tight">{member.name}</p>
+                          <div className="flex flex-col gap-0.5 mt-0.5">
+                            {member.slug && (
+                              <span className="text-[10px] font-medium text-[#007AFF] font-mono select-all">
+                                @{member.slug}
+                              </span>
+                            )}
+                            <p className="text-[10px] text-[#86868B] truncate max-w-[180px]">
+                              {member.description || "Sin descripción"}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </td>
 
-                    <td className="px-6 py-4.5 font-semibold text-slate-600 dark:text-slate-350 font-sans">
+                    <td className="px-6 py-4 text-[#86868B]">
                       {member.email}
                     </td>
 
-                    <td className="px-6 py-4.5 font-bold text-slate-700 dark:text-slate-300 font-sans">
-                      {member.phone || <span className="text-slate-350 dark:text-slate-600 italic font-medium">No registrado</span>}
+                    <td className="px-6 py-4 text-[#1D1D1F] font-medium">
+                      {member.phone || <span className="text-[#86868B] font-normal">No registrado</span>}
                     </td>
 
-                    <td className="px-6 py-4.5 text-right space-x-2.5 whitespace-nowrap">
-                      {/* Edit/Configure Button (Outlined circle, no black borders) */}
+                    <td className="px-6 py-4 text-right space-x-1 whitespace-nowrap">
+                      {/* Edit/Configure Button */}
                       <button
                         onClick={() => openEdit(member)}
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/40 text-slate-500 hover:bg-[#1A73E8] hover:text-white hover:border-[#1A73E8] dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-400 dark:hover:bg-[#1A73E8] dark:hover:text-white dark:hover:border-[#1A73E8] transition-all cursor-pointer"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#86868B] hover:text-[#007AFF] hover:bg-[#007AFF]/10 active:scale-95 transition-all cursor-pointer"
                         title="Configurar perfil y horarios"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -296,11 +324,11 @@ export function StaffTable({ initialStaff }: Props) {
                         </svg>
                       </button>
 
-                      {/* Delete Button (Outlined circle, no black borders) */}
+                      {/* Delete Button */}
                       <button
                         onClick={() => setIsDeleteConfirmOpen(member.id)}
                         type="button"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/40 text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-400 dark:hover:bg-red-955/20 dark:hover:text-red-400 dark:hover:border-red-900/30 transition-all cursor-pointer"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#86868B] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 active:scale-95 transition-all cursor-pointer"
                         title="Eliminar colaborador"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -316,341 +344,464 @@ export function StaffTable({ initialStaff }: Props) {
         </div>
       </div>
 
-      {/* CREATE STAFF MODAL */}
+      {/* CREATE STAFF MODAL (Apple Design System Inset Grouped Cards) */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-md">
-          <form onSubmit={handleCreate} className="w-full max-w-md overflow-hidden border border-white/20 bg-white/95 p-8 shadow-xl dark:border-white/5 dark:bg-slate-900/95 backdrop-blur-xl rounded-[32px] animate-scale-up space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-150 font-heading">
-                Registrar Colaborador
-              </h3>
-              <p className="mt-1 text-xs font-semibold text-slate-450 dark:text-slate-500">
-                Ingresa los datos del nuevo integrante del equipo.
-              </p>
-            </div>
-
-            {formError && (
-              <div className="rounded-2xl border border-red-200/50 bg-red-50/50 px-4 py-3 text-xs font-bold text-red-750 dark:border-red-900/30 dark:bg-red-955/20 dark:text-red-300">
-                {formError}
-              </div>
-            )}
-
-            <div className="space-y-5">
+        <div 
+          onClick={() => setIsCreateOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col overflow-hidden rounded-[28px] border border-black/[0.08] bg-white/95 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.16)] animate-in zoom-in-95 duration-200"
+          >
+            {/* 1. STICKY HEADER */}
+            <div className="p-5 sm:p-6 pb-4 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex items-center justify-between">
               <div>
-                <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
-                  Nombre Completo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Dr. Andrés Silva"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
-                  Correo Electrónico *
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="andres@correo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
-                  Teléfono Móvil
-                </label>
-                <input
-                  type="tel"
-                  placeholder="55790854"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setIsCreateOpen(false)}
-                type="button"
-                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 cursor-pointer transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                disabled={pending}
-                type="submit"
-                className="rounded-full bg-[#1A73E8] px-6 py-3 text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:bg-[#005bbf] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {pending ? "Guardando..." : "Registrar"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* EDIT STAFF MODAL (TABBED INFRASTRUCTURE) */}
-      {selectedStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-955/30 p-4 backdrop-blur-md">
-          <form onSubmit={handleUpdate} className="w-full max-w-2xl overflow-hidden border border-white/20 bg-white/95 p-8 shadow-xl dark:border-white/5 dark:bg-slate-900/95 backdrop-blur-xl rounded-[32px] animate-scale-up flex flex-col max-h-[85vh]">
-            <div className="flex justify-between items-start border-b border-slate-200/40 dark:border-slate-800/60 pb-6">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-150 font-heading">
-                  Configurar Especialista
+                <h3 className="text-base sm:text-lg font-bold text-[#1D1D1F] font-heading leading-tight">
+                  Registrar Colaborador
                 </h3>
-                <p className="mt-1 text-xs font-semibold text-slate-450 dark:text-slate-500">
-                  {selectedStaff.name} · {selectedStaff.email}
+                <p className="mt-0.5 text-xs text-[#86868B] font-medium">
+                  Ingresa los datos del nuevo integrante del equipo.
                 </p>
               </div>
-              <div className="flex rounded-full bg-slate-100 p-1 dark:bg-slate-950/60 border border-slate-200/50 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("info")}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer font-heading ${
-                    activeTab === "info"
-                      ? "bg-white text-slate-850 shadow-xs dark:bg-slate-900 dark:text-slate-100"
-                      : "text-slate-450 hover:text-slate-700 dark:hover:text-slate-300"
-                  }`}
-                >
-                  Perfil Info
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("hours")}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer font-heading ${
-                    activeTab === "hours"
-                      ? "bg-white text-slate-850 shadow-xs dark:bg-slate-900 dark:text-slate-100"
-                      : "text-slate-450 hover:text-slate-700 dark:hover:text-slate-300"
-                  }`}
-                >
-                  Horarios
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+                className="h-8 w-8 rounded-full bg-black/[0.04] hover:bg-black/[0.08] active:scale-95 flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] transition-all cursor-pointer shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            {formError && (
-              <div className="mt-4 rounded-2xl border border-red-200/50 bg-red-50/50 px-4 py-3 text-xs font-bold text-red-750 dark:border-red-900/30 dark:bg-red-955/20 dark:text-red-300">
-                {formError}
-              </div>
-            )}
+            <form onSubmit={handleCreate} className="flex flex-col flex-1 overflow-hidden">
+              {/* 2. SCROLLABLE BODY */}
+              <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+                {formError && (
+                  <div className="rounded-2xl border border-[#FF3B30]/20 bg-[#FF3B30]/10 p-3.5 text-xs font-semibold text-[#FF3B30]">
+                    {formError}
+                  </div>
+                )}
 
-            <div className="flex-1 overflow-y-auto py-6 space-y-5 pr-1 min-h-[350px]">
-              {/* TAB 1: INFO PROFILE */}
-              {activeTab === "info" && (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* CARD 1: DATOS PERSONALES */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                    Información Personal
+                  </p>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                      Nombre Completo <span className="text-[#FF3B30]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Dr. Andrés Silva"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
-                        Nombre Completo *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
-                        Correo Electrónico *
+                      <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                        Correo Electrónico <span className="text-[#FF3B30]">*</span>
                       </label>
                       <input
                         type="email"
                         required
+                        placeholder="andres@correo.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
+                        className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
+                      <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
                         Teléfono Móvil
                       </label>
                       <input
                         type="tel"
+                        placeholder="55790854"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
-                        URL de Foto de Perfil
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://..."
-                        value={avatarUrl}
-                        onChange={(e) => setAvatarUrl(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs"
+                        className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
                       />
                     </div>
                   </div>
+                </div>
 
+                {/* CARD 2: CONFIGURACIÓN PÚBLICA */}
+                <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                    Portal y Enlace
+                  </p>
                   <div>
-                    <label className="mb-2 block text-xs font-bold text-slate-600 dark:text-slate-350 font-heading">
-                      Especialidad / Descripción Corta
+                    <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                      Slug de Reserva Personal
                     </label>
-                    <textarea
-                      rows={3}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Ej. Especialista en Ortodoncia y estética dental..."
-                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 dark:border-slate-800 dark:bg-slate-955/80 dark:text-slate-100 focus:outline-hidden focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8] transition-all shadow-xs resize-none"
+                    <input
+                      type="text"
+                      placeholder="dr-andres-silva"
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value)}
+                      className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
                     />
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* TAB 2: HOURS CONFIG */}
-              {activeTab === "hours" && (
-                <div className="space-y-4">
-                  {DAYS_KEYS.map((dayKey) => {
-                    const day = weeklyHours[dayKey] || { enabled: false, ranges: [] };
-                    const enabled = day.enabled;
-
-                    return (
-                      <div
-                        key={dayKey}
-                        className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-[24px] border transition-all ${
-                          enabled
-                            ? "border-slate-200 bg-white/70 dark:border-slate-800/80 dark:bg-slate-900/50 border-l-4 border-l-[#1A73E8]"
-                            : "border-slate-200/50 bg-slate-50/50 dark:border-slate-850/30 dark:bg-slate-955/30 opacity-70"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => toggleDay(dayKey)}
-                            className={`relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 focus:outline-hidden ${
-                              enabled ? "bg-[#1A73E8]" : "bg-slate-200 dark:bg-slate-800"
-                            }`}
-                          >
-                            <span
-                              className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-xs ring-0 transition duration-300 ease-in-out ${
-                                enabled ? "translate-x-4.5" : "translate-x-0"
-                              }`}
-                            />
-                          </button>
-                          <span className="text-xs font-bold text-slate-800 dark:text-slate-150 font-heading w-20">
-                            {DAY_LABELS[dayKey]}
-                          </span>
-                        </div>
-
-                        <div className="flex-1 flex flex-col gap-2 md:items-end">
-                          {enabled ? (
-                            <div className="space-y-2">
-                              {day.ranges.map((range: any, ri: number) => (
-                                <div key={ri} className="flex items-center gap-2">
-                                  <input
-                                    type="time"
-                                    value={range.start}
-                                    onChange={(e) => updateRange(dayKey, ri, "start", e.target.value)}
-                                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 outline-hidden dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8]"
-                                  />
-                                  <span className="text-xs text-slate-400">a</span>
-                                  <input
-                                    type="time"
-                                    value={range.end}
-                                    onChange={(e) => updateRange(dayKey, ri, "end", e.target.value)}
-                                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-800 outline-hidden dark:border-slate-800 dark:bg-slate-955 dark:text-slate-100 focus:border-[#1A73E8] focus:ring-1 focus:ring-[#1A73E8]"
-                                  />
-
-                                  {day.ranges.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => removeRange(dayKey, ri)}
-                                      className="h-7 w-7 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-red-955/20 transition-all cursor-pointer"
-                                    >
-                                      ✕
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-
-                              {day.ranges.length < 2 && (
-                                <button
-                                  type="button"
-                                  onClick={() => addRange(dayKey)}
-                                  className="text-[10px] font-bold uppercase tracking-wider text-[#1A73E8] bg-white border border-slate-200 px-4 py-2.5 rounded-full hover:bg-slate-50 cursor-pointer shadow-xs dark:bg-slate-955 dark:border-slate-800 dark:text-blue-400 dark:hover:bg-slate-900 transition-all block md:ml-auto"
-                                >
-                                  + Pausa almuerzo
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-slate-450 italic">
-                              No laborable
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-slate-200/40 dark:border-slate-800/60 pt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setSelectedStaff(null)}
-                type="button"
-                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400 dark:hover:bg-slate-900 cursor-pointer transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                disabled={pending}
-                type="submit"
-                className="rounded-full bg-[#1A73E8] px-6 py-3 text-xs font-bold text-white shadow-md shadow-blue-500/10 hover:bg-[#005bbf] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {pending ? "Guardando..." : "Guardar Cambios"}
-              </button>
-            </div>
-          </form>
+              {/* 3. STICKY FOOTER */}
+              <div className="p-4 sm:p-5 border-t border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex flex-row gap-3 justify-end">
+                <button
+                  onClick={() => setIsCreateOpen(false)}
+                  type="button"
+                  className="flex-1 sm:flex-none sm:min-w-[120px] rounded-xl border border-black/[0.08] bg-[#F2F2F7] py-2.5 px-5 text-xs font-semibold text-[#1D1D1F] hover:bg-[#E5E5EA] active:scale-[0.98] transition-all text-center cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={pending}
+                  type="submit"
+                  className="flex-1 sm:flex-none sm:min-w-[160px] rounded-xl bg-[#007AFF] hover:bg-[#0062cc] active:scale-[0.98] py-2.5 px-6 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(0,122,255,0.25)] transition-all disabled:opacity-50 text-center cursor-pointer"
+                >
+                  {pending ? "Guardando..." : "Registrar"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      {/* DELETE CONFIRMATION DIALOG */}
+      {/* EDIT STAFF MODAL (Responsive Apple Design 3-Tier Layout) */}
+      {selectedStaff && (
+        <div 
+          onClick={() => setSelectedStaff(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-2xl max-h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-3.5rem)] flex flex-col overflow-hidden rounded-[28px] border border-black/[0.08] bg-white/95 backdrop-blur-2xl shadow-[0_24px_60px_rgba(0,0,0,0.16)] animate-in zoom-in-95 duration-200"
+          >
+            {/* 1. STICKY HEADER */}
+            <div className="p-5 sm:p-6 pb-4 border-b border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-bold text-[#1D1D1F] font-heading leading-tight truncate">
+                  Configurar Especialista
+                </h3>
+                <p className="mt-0.5 text-xs text-[#86868B] font-medium truncate">
+                  {selectedStaff.name} · {selectedStaff.email}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex rounded-xl bg-black/[0.05] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("info")}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      activeTab === "info"
+                        ? "bg-white text-[#1D1D1F] shadow-xs"
+                        : "text-[#86868B] hover:text-[#1D1D1F]"
+                    }`}
+                  >
+                    Perfil
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("hours")}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      activeTab === "hours"
+                        ? "bg-white text-[#1D1D1F] shadow-xs"
+                        : "text-[#86868B] hover:text-[#1D1D1F]"
+                    }`}
+                  >
+                    Horarios
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedStaff(null)}
+                  className="h-8 w-8 rounded-full bg-black/[0.04] hover:bg-black/[0.08] active:scale-95 flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] transition-all cursor-pointer shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdate} className="flex flex-col flex-1 overflow-hidden">
+              {/* 2. SCROLLABLE BODY */}
+              <div className="p-5 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
+                {formError && (
+                  <div className="rounded-xl border border-[#FF3B30]/20 bg-[#FF3B30]/10 px-4 py-2.5 text-xs font-semibold text-[#FF3B30]">
+                    {formError}
+                  </div>
+                )}
+
+                {/* TAB 1: INFO PROFILE */}
+                {activeTab === "info" && (
+                  <div className="space-y-4">
+                    {/* CARD 1: DATOS PERSONALES */}
+                    <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-3.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                        Información Personal
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                            Nombre Completo <span className="text-[#FF3B30]">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                            Correo Electrónico <span className="text-[#FF3B30]">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                            Teléfono Móvil
+                          </label>
+                          <input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                            Slug de Reserva
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="dr-andres-silva"
+                            value={slug}
+                            onChange={(e) => setSlug(e.target.value)}
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CARD 2: PERFIL PÚBLICO Y DESCRIPCIÓN */}
+                    <div className="p-4 sm:p-5 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/80 space-y-3.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B]">
+                        Perfil Público y Visibilidad
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                            URL de Foto de Perfil
+                          </label>
+                          <input
+                            type="url"
+                            placeholder="https://..."
+                            value={avatarUrl}
+                            onChange={(e) => setAvatarUrl(e.target.value)}
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all shadow-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                            Estado en el Sistema
+                          </label>
+                          <select
+                            value={isActive ? "true" : "false"}
+                            onChange={(e) => setIsActive(e.target.value === "true")}
+                            className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] focus:outline-none focus:border-[#007AFF] shadow-xs cursor-pointer"
+                          >
+                            <option value="true">Activo (Disponible)</option>
+                            <option value="false">Inactivo / Vacaciones</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold text-[#1D1D1F]">
+                          Especialidad / Descripción Corta
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Ej. Especialista en psicología clínica y terapia cognitivo-conductual..."
+                          className="w-full rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs font-medium text-[#1D1D1F] placeholder:text-[#86868B] focus:outline-none focus:border-[#007AFF] focus:ring-2 focus:ring-[#007AFF]/10 transition-all resize-none shadow-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: WORKING HOURS SCHEDULE */}
+                {activeTab === "hours" && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-[#86868B] font-medium mb-3">
+                      Establece las franjas de disponibilidad semanal en las que este colaborador atiende citas.
+                    </p>
+
+                    {DAYS_KEYS.map((dayKey) => {
+                      const day = weeklyHours[dayKey] || { enabled: false, ranges: [] };
+                      const enabled = day.enabled;
+
+                      return (
+                        <div
+                          key={dayKey}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-all ${
+                            enabled
+                              ? "border-black/[0.08] bg-white shadow-xs"
+                              : "border-black/[0.04] bg-[#F5F5F7]/50 opacity-60"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => toggleDay(dayKey)}
+                              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none ${
+                                enabled ? "bg-[#34C759]" : "bg-black/[0.12]"
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out mt-0.5 ${
+                                  enabled ? "translate-x-4.5" : "translate-x-0.5"
+                                }`}
+                              />
+                            </button>
+                            <span className="text-xs font-bold text-[#1D1D1F] w-24">
+                              {DAY_LABELS[dayKey]}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 flex flex-col gap-2 sm:items-end">
+                            {enabled ? (
+                              <div className="space-y-2">
+                                {day.ranges.map((range: any, ri: number) => (
+                                  <div key={ri} className="flex items-center gap-2">
+                                    <input
+                                      type="time"
+                                      value={range.start}
+                                      onChange={(e) => updateRange(dayKey, ri, "start", e.target.value)}
+                                      className="rounded-xl border border-black/[0.08] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1D1D1F] focus:border-[#007AFF] shadow-xs"
+                                    />
+                                    <span className="text-xs text-[#86868B]">a</span>
+                                    <input
+                                      type="time"
+                                      value={range.end}
+                                      onChange={(e) => updateRange(dayKey, ri, "end", e.target.value)}
+                                      className="rounded-xl border border-black/[0.08] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1D1D1F] focus:border-[#007AFF] shadow-xs"
+                                    />
+
+                                    {day.ranges.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeRange(dayKey, ri)}
+                                        className="h-6 w-6 inline-flex items-center justify-center rounded-md text-[#86868B] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-all cursor-pointer text-xs"
+                                      >
+                                        ✕
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+
+                                {day.ranges.length < 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => addRange(dayKey)}
+                                    className="text-[11px] font-semibold text-[#007AFF] hover:bg-[#007AFF]/10 px-3 py-1.5 rounded-xl transition-all cursor-pointer block sm:ml-auto"
+                                  >
+                                    + Pausa almuerzo
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-[#86868B] italic">
+                                No laborable
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. STICKY FOOTER */}
+              <div className="p-4 sm:p-5 border-t border-black/[0.06] bg-white/80 backdrop-blur-xl shrink-0 flex flex-row gap-3 justify-end">
+                <button
+                  onClick={() => setSelectedStaff(null)}
+                  type="button"
+                  className="flex-1 sm:flex-none sm:min-w-[120px] rounded-xl border border-black/[0.08] bg-[#F2F2F7] py-2.5 px-5 text-xs font-semibold text-[#1D1D1F] hover:bg-[#E5E5EA] active:scale-[0.98] transition-all text-center cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={pending}
+                  type="submit"
+                  className="flex-1 sm:flex-none sm:min-w-[160px] rounded-xl bg-[#007AFF] hover:bg-[#0062cc] active:scale-[0.98] py-2.5 px-6 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(0,122,255,0.25)] transition-all disabled:opacity-50 text-center cursor-pointer"
+                >
+                  {pending ? "Guardando..." : "Guardar Cambios"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION DIALOG (Responsive Apple Design Layout) */}
       {isDeleteConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-md">
-          <div className="w-full max-w-md border border-white/20 bg-white/95 p-8 shadow-xl dark:border-white/5 dark:bg-slate-900/95 backdrop-blur-xl rounded-[32px] animate-scale-up">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/20 dark:text-red-400">
+        <div 
+          onClick={() => setIsDeleteConfirmOpen(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md overflow-hidden bg-white/95 backdrop-blur-2xl border border-black/[0.08] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.16)] rounded-[28px] space-y-4 animate-in zoom-in-95 duration-200"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#FF3B30]/10 text-[#FF3B30]">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h4 className="mt-4 text-xl font-bold text-slate-800 dark:text-slate-150 font-heading">
-              ¿Eliminar ficha de colaborador?
-            </h4>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-semibold font-sans">
-              Esta acción eliminará de forma permanente al colaborador de tu equipo, inhabilitando sus horarios del portal público de reservas.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
+            <div>
+              <h4 className="text-lg font-bold text-[#1D1D1F] font-heading leading-tight">
+                ¿Eliminar ficha de colaborador?
+              </h4>
+              <p className="mt-1.5 text-xs text-[#86868B] leading-relaxed font-normal">
+                Esta acción eliminará de forma permanente al colaborador de tu equipo, inhabilitando sus horarios del portal público de reservas.
+              </p>
+            </div>
+            <div className="mt-6 flex justify-end gap-2.5 pt-4 border-t border-black/[0.06]">
               <button
                 onClick={() => setIsDeleteConfirmOpen(null)}
                 type="button"
-                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-350 dark:hover:bg-slate-800 cursor-pointer transition-all"
+                className="rounded-xl border border-black/[0.08] bg-[#F2F2F7] px-4 py-2 text-xs font-semibold text-[#1D1D1F] hover:bg-[#E5E5EA] active:scale-[0.98] transition-all cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 disabled={pending}
                 onClick={() => handleDelete(isDeleteConfirmOpen)}
-                className="rounded-full bg-red-600 px-6 py-3 text-xs font-bold text-white shadow-md shadow-red-500/10 hover:bg-red-700 transition-all disabled:opacity-50 cursor-pointer"
+                className="rounded-xl bg-[#FF3B30] hover:bg-[#d9342b] active:scale-[0.98] px-5 py-2 text-xs font-semibold text-white shadow-[0_2px_8px_rgba(255,59,48,0.25)] transition-all disabled:opacity-50 cursor-pointer"
               >
                 {pending ? "Eliminando..." : "Eliminar Colaborador"}
               </button>

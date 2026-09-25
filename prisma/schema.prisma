@@ -8,15 +8,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Rubro {
-  SALUD
-  BELLEZA
-  CONSULTORIA
-}
 
 enum PlanTier {
   FREE
   PRO
+}
+
+enum UserRole {
+  TENANT
+  ADMIN
 }
 
 enum AppointmentStatus {
@@ -31,8 +31,9 @@ model User {
   password         String?
   name             String
   slug             String          @unique
-  rubro            Rubro
+  rubro            String          @default("GENERAL")
   planTier         PlanTier        @default(FREE)
+  role             UserRole        @default(TENANT)
   stripeCustomerId String?         @unique
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -42,6 +43,8 @@ model User {
   clients          Client[]
   locations        Location[]
   staff            Staff[]
+  services         Service[]
+  resources        Resource[]
   clinicalRecords  ClinicalRecord[]
 }
 
@@ -57,20 +60,77 @@ model GoogleAccount {
 }
 
 model BusinessConfig {
-  id             String   @id @default(uuid())
-  userId         String   @unique
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  slotDuration   Int      @default(30)
-  bufferTime     Int      @default(0)
-  weeklyHours    Json
-  formFields     Json
-  removeBranding Boolean  @default(false)
-  enableWhatsApp Boolean  @default(false)
-  description    String?
-  avatarUrl      String?
-  timezone       String   @default("America/Mexico_City")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slotDuration       Int      @default(30)
+  bufferTime         Int      @default(0)
+  weeklyHours        Json
+  formFields         Json
+  removeBranding     Boolean  @default(false)
+  enableWhatsApp     Boolean  @default(false)
+  whatsappNumber     String?
+  description        String?
+  avatarUrl          String?
+  timezone           String   @default("America/Mexico_City")
+  acceptBankTransfer Boolean  @default(false)
+  bankName           String?
+  bankClabe          String?
+  bankHolder         String?
+  bankInstructions   String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Service {
+  id              String          @id @default(uuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  duration        Int             @default(30) // in minutes
+  bufferTime      Int             @default(0)  // in minutes
+  price           Float           @default(0)
+  currency        String          @default("MXN")
+  isActive        Boolean         @default(true)
+  onlineBooking   Boolean         @default(true)
+  requiresPayment Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  appointments    Appointment[]
+  staffServices   StaffService[]
+
+  @@index([userId])
+}
+
+model StaffService {
+  id        String   @id @default(uuid())
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, serviceId])
+  @@index([staffId])
+  @@index([serviceId])
+}
+
+model Resource {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId  String?
+  location    Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  name        String
+  type        String        @default("GENERAL") // "CONSULTORIO" | "SILLON" | "CANCHA" | "CABINA" | "EQUIPO"
+  isActive    Boolean       @default(true)
+  appointments Appointment[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([locationId])
 }
 
 model Appointment {
@@ -85,18 +145,25 @@ model Appointment {
   clientEmail          String
   clientPhone          String
   clientMetadata       Json?
+  serviceId            String?
+  service              Service?          @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   locationId           String?
   location             Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
   staffId              String?
   staff                Staff?            @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  resourceId           String?
+  resource             Resource?         @relation(fields: [resourceId], references: [id], onDelete: SetNull)
   reminderSent         Boolean           @default(false)
   reminderWhatsAppSent Boolean           @default(false)
   price                Float?            @default(0)
   paymentStatus        String?           @default("PENDIENTE") // "PENDIENTE" | "PAGADO" | "REEMBOLSADO"
+  paymentProofUrl      String?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
   @@index([userId, startTime, endTime])
+  @@index([serviceId])
+  @@index([resourceId])
 }
 
 model Client {
@@ -123,23 +190,29 @@ model Location {
   address      String
   phone        String?
   appointments Appointment[]
+  resources    Resource[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
 
 model Staff {
-  id           String        @id @default(uuid())
-  userId       String
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name         String
-  email        String
-  phone        String?
-  description  String?
-  avatarUrl    String?
-  weeklyHours  Json
-  appointments Appointment[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id            String         @id @default(uuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  email         String
+  phone         String?
+  description   String?
+  avatarUrl     String?
+  weeklyHours   Json
+  appointments  Appointment[]
+  staffServices StaffService[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  slug          String?
+  isActive      Boolean        @default(true)
+
+  @@unique([userId, slug])
 }
 
 model ClinicalRecord {

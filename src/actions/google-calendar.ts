@@ -4,11 +4,19 @@ import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { withTenant } from "@/lib/tenant";
+import { canUseFeature } from "@/lib/plan-guard";
 
 const TOKEN_LIFETIME_MS = 55 * 60 * 1000;
 
 export async function persistGoogleAccountFromSession() {
-  const authUser = await requireAuth();
+  const tenant = await withTenant();
+
+  const featureCheck = canUseFeature(tenant.planTier, "googleCalendar");
+  if (!featureCheck.allowed) {
+    return { error: featureCheck.reason };
+  }
+
   const supabase = await createClient();
 
   const {
@@ -40,9 +48,9 @@ export async function persistGoogleAccountFromSession() {
   const expiryDate = BigInt(Date.now() + TOKEN_LIFETIME_MS);
 
   await prisma.googleAccount.upsert({
-    where: { userId: authUser.id },
+    where: { userId: tenant.userId },
     create: {
-      userId: authUser.id,
+      userId: tenant.userId,
       accessToken,
       refreshToken,
       expiryDate,

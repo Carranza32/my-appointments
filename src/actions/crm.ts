@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getProfessional, requireAuth } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { getRubroConfig } from "@/lib/rubros";
 
 export type CRMDetails = {
   client: {
@@ -47,7 +48,6 @@ function findFavoriteService(appointments: any[]): string {
   for (const apt of appointments) {
     if (apt.clientMetadata && typeof apt.clientMetadata === "object" && !Array.isArray(apt.clientMetadata)) {
       const metadata = apt.clientMetadata as Record<string, any>;
-      // Find key matching "servicio" or "service" (case-insensitive)
       const serviceKey = Object.keys(metadata).find(
         (k) => k.toLowerCase() === "servicio" || k.toLowerCase() === "service"
       );
@@ -68,12 +68,10 @@ function findFavoriteService(appointments: any[]): string {
 }
 
 export async function getClientCRMDetails(clientId: string): Promise<CRMDetails | null> {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return null;
+  const tenant = await withTenant();
 
   const client = await prisma.client.findFirst({
-    where: { id: clientId, userId: professional.id },
+    where: { id: clientId, userId: tenant.userId },
   });
 
   if (!client) return null;
@@ -81,24 +79,29 @@ export async function getClientCRMDetails(clientId: string): Promise<CRMDetails 
   // Fetch all appointments for this client email
   const appointments = await prisma.appointment.findMany({
     where: {
-      userId: professional.id,
+      userId: tenant.userId,
       clientEmail: client.email,
     },
     include: {
       location: true,
       staff: true,
+      service: true,
     },
     orderBy: { startTime: "desc" },
   });
 
-  // Fetch clinical records
-  const clinicalRecords = await prisma.clinicalRecord.findMany({
-    where: {
-      clientId: client.id,
-      userId: professional.id,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  // Fetch clinical records if rubro allows
+  const rubroConfig = getRubroConfig(tenant.rubro);
+  let clinicalRecords: any[] = [];
+  if (rubroConfig.enableClinicalRecords) {
+    clinicalRecords = await prisma.clinicalRecord.findMany({
+      where: {
+        clientId: client.id,
+        userId: tenant.userId,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
 
   // Calculate metrics
   const totalBooked = appointments.length;
@@ -109,7 +112,25 @@ export async function getClientCRMDetails(clientId: string): Promise<CRMDetails 
     .filter((a) => a.paymentStatus === "PAGADO")
     .reduce((sum, a) => sum + (a.price || 0), 0);
 
-  const favoriteService = findFavoriteService(appointments);
+  // Calculate favorite service
+  const serviceCounts: Record<string, number> = {};
+  for (const apt of appointments) {
+    let name = apt.service?.name;
+    if (!name && apt.clientMetadata && typeof apt.clientMetadata === "object" && !Array.isArray(apt.clientMetadata)) {
+      const metadata = apt.clientMetadata as Record<string, any>;
+      const serviceKey = Object.keys(metadata).find(
+        (k) => k.toLowerCase() === "servicio" || k.toLowerCase() === "service"
+      );
+      if (serviceKey && metadata[serviceKey]) {
+        name = String(metadata[serviceKey]).trim();
+      }
+    }
+    if (name) {
+      serviceCounts[name] = (serviceCounts[name] || 0) + 1;
+    }
+  }
+  const entries = Object.entries(serviceCounts).sort((a, b) => b[1] - a[1]);
+  const favoriteService = entries.length > 0 ? entries[0][0] : "No registrado";
 
   return {
     client: {
@@ -128,9 +149,8 @@ export async function getClientCRMDetails(clientId: string): Promise<CRMDetails 
       favoriteService,
     },
     appointments: appointments.map((a) => {
-      // Try to extract service name from metadata
-      let serviceName: string | null = null;
-      if (a.clientMetadata && typeof a.clientMetadata === "object" && !Array.isArray(a.clientMetadata)) {
+      let serviceName: string | null = a.service?.name || null;
+      if (!serviceName && a.clientMetadata && typeof a.clientMetadata === "object" && !Array.isArray(a.clientMetadata)) {
         const metadata = a.clientMetadata as Record<string, any>;
         const serviceKey = Object.keys(metadata).find(
           (k) => k.toLowerCase() === "servicio" || k.toLowerCase() === "service"
@@ -172,9 +192,12 @@ export async function createClinicalRecord(
     attachments?: string[];
   }
 ) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
+  const rubroConfig = getRubroConfig(tenant.rubro);
+
+  if (!rubroConfig.enableClinicalRecords) {
+    return { error: "El módulo clínico no está habilitado para el rubro de este negocio." };
+  }
 
   const title = input.title.trim();
   const content = input.content.trim();
@@ -189,7 +212,7 @@ export async function createClinicalRecord(
 
   // Verify client ownership
   const client = await prisma.client.findFirst({
-    where: { id: clientId, userId: professional.id },
+    where: { id: clientId, userId: tenant.userId },
   });
 
   if (!client) {
@@ -199,7 +222,7 @@ export async function createClinicalRecord(
   const record = await prisma.clinicalRecord.create({
     data: {
       clientId,
-      userId: professional.id,
+      userId: tenant.userId,
       title,
       type,
       content,
@@ -208,16 +231,20 @@ export async function createClinicalRecord(
   });
 
   revalidatePath("/dashboard/clientes");
+  revalidatePath("/dashboard/expedientes");
   return { success: true, recordId: record.id };
 }
 
 export async function deleteClinicalRecord(recordId: string) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
+  const rubroConfig = getRubroConfig(tenant.rubro);
+
+  if (!rubroConfig.enableClinicalRecords) {
+    return { error: "El módulo clínico no está habilitado para el rubro de este negocio." };
+  }
 
   const existing = await prisma.clinicalRecord.findFirst({
-    where: { id: recordId, userId: professional.id },
+    where: { id: recordId, userId: tenant.userId },
   });
 
   if (!existing) {
@@ -229,6 +256,7 @@ export async function deleteClinicalRecord(recordId: string) {
   });
 
   revalidatePath("/dashboard/clientes");
+  revalidatePath("/dashboard/expedientes");
   return { success: true };
 }
 
@@ -239,12 +267,10 @@ export async function updateAppointmentPayment(
     price: number;
   }
 ) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
 
   const appointment = await prisma.appointment.findFirst({
-    where: { id: appointmentId, userId: professional.id },
+    where: { id: appointmentId, userId: tenant.userId },
   });
 
   if (!appointment) {
@@ -261,4 +287,41 @@ export async function updateAppointmentPayment(
 
   revalidatePath("/dashboard/clientes");
   return { success: true };
+}
+
+export async function getAllClinicalRecords() {
+  const tenant = await withTenant();
+  const rubroConfig = getRubroConfig(tenant.rubro);
+
+  if (!rubroConfig.enableClinicalRecords) {
+    return [];
+  }
+
+  const records = await prisma.clinicalRecord.findMany({
+    where: { userId: tenant.userId },
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return records.map((r) => ({
+    id: r.id,
+    clientId: r.clientId,
+    clientName: r.client.name,
+    clientEmail: r.client.email,
+    clientPhone: r.client.phone,
+    title: r.title,
+    type: r.type,
+    content: r.content,
+    attachments: Array.isArray(r.attachments) ? (r.attachments as string[]) : null,
+    createdAt: r.createdAt.toISOString(),
+  }));
 }

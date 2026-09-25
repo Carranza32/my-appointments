@@ -1,5 +1,6 @@
 import { GoogleCalendarConnect } from "@/components/dashboard/google-calendar-connect";
 import { getProfessional } from "@/lib/auth";
+import { FeatureGate } from "@/components/ui/feature-gate";
 
 type Props = {
   searchParams: Promise<{ google?: string; message?: string }>;
@@ -11,43 +12,73 @@ export default async function IntegrationsPage({ searchParams }: Props) {
   const googleAccount = professional?.googleAccount;
 
   return (
-    <div className="relative mx-auto max-w-5xl pb-12">
-      {/* Decorative Glows in Background */}
-      <div className="absolute top-10 right-10 -z-10 h-72 w-72 rounded-full bg-primary-400/10 blur-3xl dark:bg-primary-500/5 animate-float-slow pointer-events-none"></div>
-      <div className="absolute bottom-20 left-10 -z-10 h-96 w-96 rounded-full bg-indigo-400/10 blur-3xl dark:bg-indigo-500/5 animate-float-delayed pointer-events-none"></div>
-
+    <div className="relative mx-auto max-w-5xl pb-12 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black font-heading tracking-tight text-slate-800 dark:text-slate-100">
+          <h2 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
             Integraciones
           </h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs text-[#86868B]">
             Las integraciones son opcionales. Tu agenda principal vive en{" "}
-            <span className="text-primary-600 dark:text-primary-400 font-bold">Mis citas</span>; Google Calendar añade sincronización bidireccional extra.
+            <span className="text-[#007AFF] font-medium">Mis citas</span>; Google Calendar añade sincronización bidireccional extra.
           </p>
         </div>
       </div>
 
       {params.google === "connected" && (
-        <div className="mt-6 flex items-center gap-2 rounded-xl border border-emerald-200/60 bg-emerald-50/98 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/30 dark:bg-emerald-950/98 dark:text-emerald-300 shadow-sm backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300">
-          <span className="text-lg">✓</span>
-          <span>Google Calendar conectado correctamente.</span>
+        <div className="flex items-center gap-2 rounded-xl border border-[#34C759]/20 bg-[#34C759]/10 px-4 py-3 text-xs text-[#34C759] backdrop-blur-2xl animate-in fade-in duration-200">
+          <span className="text-sm">✓</span>
+          <span className="font-medium text-[#1D1D1F]">Google Calendar conectado correctamente.</span>
         </div>
       )}
 
       {params.google === "error" && (
-        <div className="mt-6 flex items-center gap-2 rounded-xl border border-red-200/60 bg-red-50/98 px-4 py-3 text-sm text-red-800 dark:border-red-800/30 dark:bg-red-950/98 dark:text-red-300 shadow-sm backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300">
-          <span className="text-lg">⚠️</span>
-          <span>Error al conectar: {params.message ?? "Intenta de nuevo."}</span>
+        <div className="flex items-center gap-2 rounded-xl border border-[#FF3B30]/20 bg-[#FF3B30]/10 px-4 py-3 text-xs text-[#FF3B30] backdrop-blur-2xl animate-in fade-in duration-200">
+          <span className="text-sm">⚠️</span>
+          <span className="font-medium text-[#1D1D1F]">Error al conectar: {params.message ?? "Intenta de nuevo."}</span>
         </div>
       )}
 
-      <div className="mt-8 max-w-2xl">
-        <GoogleCalendarConnect
-          connected={Boolean(googleAccount)}
-          linkedAt={googleAccount?.createdAt.toISOString()}
-        />
+      <div className="max-w-2xl">
+        <FeatureGate
+          planTier={professional?.planTier ?? "FREE"}
+          requiredPlan="PRO"
+          fallback={
+            <div className="relative overflow-hidden rounded-2xl border border-dashed border-black/[0.12] bg-white/80 p-6 backdrop-blur-2xl select-none">
+              {/* Blurred dummy state */}
+              <div className="opacity-20 blur-[1px] pointer-events-none select-none">
+                <GoogleCalendarConnect
+                  connected={false}
+                />
+              </div>
+              
+              {/* Premium locked overlay callout */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-white/60 backdrop-blur-[2px]">
+                <span className="rounded-full bg-[#FF9500]/10 text-[#FF9500] font-medium text-[11px] px-3 py-1 uppercase tracking-wider mb-3">
+                  PRO FEATURE
+                </span>
+                <h4 className="text-base font-semibold tracking-tight text-[#1D1D1F]">
+                  Sincronización Bidireccional
+                </h4>
+                <p className="mt-2 text-xs text-[#86868B] max-w-sm">
+                  La integración y sincronización de citas con Google Calendar requiere una cuenta en el plan <strong className="text-[#1D1D1F] font-medium">PRO</strong>.
+                </p>
+                <a
+                  href="/dashboard/settings?tab=plan"
+                  className="mt-4 rounded-xl bg-[#007AFF] hover:bg-[#0062cc] px-5 py-2.5 text-xs font-medium text-white shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  Actualizar a PRO
+                </a>
+              </div>
+            </div>
+          }
+        >
+          <GoogleCalendarConnect
+            connected={Boolean(googleAccount)}
+            linkedAt={googleAccount?.createdAt.toISOString()}
+          />
+        </FeatureGate>
       </div>
     </div>
   );

@@ -31,19 +31,15 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                var theme = localStorage.getItem('theme');
-                if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.classList.remove('dark');
-                }
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
               } catch (e) {}
             `,
           }}
         />
       </head>
       <body
-        className={`${fontSans.variable} ${fontHeading.variable} min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300 font-sans antialiased`}
+        className={`${fontSans.variable} ${fontHeading.variable} min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans antialiased`}
       >
         {children}
       </body>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getProfessional } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BookingLinkWidget } from "@/components/dashboard/booking-link-widget";
+import { getLabels } from "@/lib/labels";
 import { 
   TrendingUp, 
   Users, 
@@ -27,6 +28,8 @@ export default async function DashboardPage() {
   const host = headersList.get("host") || "localhost:3000";
   const protocol = host.includes("localhost") ? "http" : "https";
   const publicUrl = `${protocol}://${host}/${professional?.slug}`;
+  const rubro = professional?.rubro ?? "GENERAL";
+  const labels = getLabels(rubro);
 
   // Fetch real stats
   const now = new Date();
@@ -46,6 +49,8 @@ export default async function DashboardPage() {
   let pendingAppointments = 0;
   let todayAppointments: any[] = [];
   let thisWeekCount = 0;
+  let pendingPaymentsCount = 0;
+  let googleAccount: any = null;
 
   try {
     const [
@@ -53,7 +58,9 @@ export default async function DashboardPage() {
       totalCls,
       pendingApts,
       todayApts,
-      thisWeekC
+      thisWeekC,
+      pendingPayments,
+      googleAcc
     ] = await Promise.all([
       prisma.appointment.count({ where: { userId: professional.id } }),
       prisma.client.count({ where: { userId: professional.id } }),
@@ -64,6 +71,10 @@ export default async function DashboardPage() {
           startTime: { gte: todayStart, lte: todayEnd },
           status: { not: "CANCELADA" }
         },
+        include: {
+          service: true,
+          staff: true,
+        },
         orderBy: { startTime: "asc" }
       }),
       prisma.appointment.count({
@@ -72,6 +83,16 @@ export default async function DashboardPage() {
           startTime: { gte: startOfWeek, lte: endOfWeek },
           status: { not: "CANCELADA" }
         }
+      }),
+      prisma.appointment.count({
+        where: {
+          userId: professional.id,
+          paymentStatus: "PENDIENTE",
+          paymentProofUrl: { not: null }
+        }
+      }),
+      prisma.googleAccount.findUnique({
+        where: { userId: professional.id }
       })
     ]);
 
@@ -80,179 +101,152 @@ export default async function DashboardPage() {
     pendingAppointments = pendingApts;
     todayAppointments = todayApts;
     thisWeekCount = thisWeekC;
+    pendingPaymentsCount = pendingPayments;
+    googleAccount = googleAcc;
   } catch (err) {
-    console.warn("Database query failed in development environment, falling back to mock data:", err);
+    console.warn("Database query failed:", err);
   }
 
-  // Fallback to mockup data if database is empty to ensure a premium out-of-the-box look
-  const displayTotal = totalAppointments > 0 ? totalAppointments.toLocaleString() : "1,284";
-  const displayClients = totalClients > 0 ? totalClients.toLocaleString() : "842";
-  const displayPending = pendingAppointments > 0 ? pendingAppointments.toString() : "14";
-  const displayThisWeek = thisWeekCount > 0 ? thisWeekCount.toString() : "42";
+  // Pure real metrics (no mock fallback)
+  const displayTotal = totalAppointments.toLocaleString();
+  const displayClients = totalClients.toLocaleString();
+  const displayPending = pendingAppointments.toString();
+  const displayThisWeek = thisWeekCount.toString();
 
   // Greeting name
-  const docName = professional?.name ?? "Dr. García";
-
-  // Mock list of today's appointments if database has none
-  const mockAppointments = [
-    {
-      id: "mock-1",
-      time: "08:00 AM",
-      clientName: "Michael Ross",
-      service: "Blood Results Review",
-      status: "Completed",
-      statusColor: "gray" // Gray
-    },
-    {
-      id: "mock-2",
-      time: "09:00 AM",
-      clientName: "Adrian Thompson",
-      service: "Annual Health Checkup",
-      status: "Confirmed",
-      statusColor: "blue" // Blue
-    },
-    {
-      id: "mock-3",
-      time: "10:30 AM",
-      clientName: "Sarah Jenkins",
-      service: "Follow-up Consultation",
-      status: "Pending",
-      statusColor: "orange" // Orange
-    },
-    {
-      id: "mock-4",
-      time: "01:00 PM",
-      clientName: "Dr. Elena Rodriguez",
-      service: "Peer Collaboration Session",
-      status: "Confirmed",
-      statusColor: "blue" // Blue
-    }
-  ];
+  const docName = professional?.name ?? "Especialista";
+  const countToday = todayAppointments.length;
 
   const formatTimeStr = (date: Date) => {
-    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
   };
 
-  const dbAppointments = todayAppointments.map(apt => {
-    // Map database status to standard string & color
-    let status = "Pending";
-    let statusColor = "orange";
-    if (apt.status === "CONFIRMADA") {
-      status = "Confirmed";
-      statusColor = "blue";
-    } else if (apt.status === "CANCELADA") {
-      status = "Cancelled";
-      statusColor = "gray";
-    }
+  // Real dynamic business alerts
+  const smartAlerts: { title: string; subtitle: string; color: string; href: string }[] = [];
 
-    return {
-      id: apt.id,
-      time: formatTimeStr(apt.startTime),
-      clientName: apt.clientName,
-      service: "Consultation", // Fallback description
-      status: status,
-      statusColor: statusColor
-    };
-  });
+  if (pendingAppointments > 0) {
+    smartAlerts.push({
+      title: `${pendingAppointments} ${pendingAppointments === 1 ? labels.appointment.toLowerCase() : labels.appointments.toLowerCase()} por confirmar`,
+      subtitle: "Revisar en calendario",
+      color: "#FF9500",
+      href: "/dashboard/citas"
+    });
+  }
 
-  const appointmentsToDisplay = dbAppointments.length > 0 ? dbAppointments : mockAppointments;
-  const countToday = dbAppointments.length > 0 ? dbAppointments.length : 8;
+  if (pendingPaymentsCount > 0) {
+    smartAlerts.push({
+      title: `${pendingPaymentsCount} ${pendingPaymentsCount === 1 ? "comprobante" : "comprobantes"} de pago pendiente`,
+      subtitle: "Verificar transferencias",
+      color: "#007AFF",
+      href: "/dashboard/pagos"
+    });
+  }
+
+  if (!googleAccount) {
+    smartAlerts.push({
+      title: "Conectar Google Calendar",
+      subtitle: "Sincroniza citas automáticamente",
+      color: "#5856D6",
+      href: "/dashboard/settings?tab=integrations"
+    });
+  }
+
+  const isClinical = rubro === "SALUD" || rubro.includes("PSICOL") || rubro.includes("MEDIC");
 
   return (
     <div className="relative mx-auto max-w-7xl pb-16 font-sans">
       
-      {/* Decorative Glows */}
-      <div className="absolute top-10 right-10 -z-10 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl animate-float-slow pointer-events-none"></div>
-      <div className="absolute bottom-20 left-10 -z-10 h-96 w-96 rounded-full bg-indigo-500/10 blur-3xl animate-float-delayed pointer-events-none"></div>
-
-      {/* Header Greeting */}
+      {/* Header Greeting (iOS Large Title style) */}
       <div className="mb-8">
-        <h1 className="font-heading font-extrabold text-slate-900 dark:text-white text-3xl tracking-tight leading-tight">
-          Good morning, {docName}
+        <h1 className="font-bold text-[#1D1D1F] text-2xl sm:text-3xl tracking-tight leading-tight">
+          ¡Buenos días, {docName}!
         </h1>
-        <p className="mt-1 text-slate-500 dark:text-slate-400 text-sm font-medium">
-          You have {countToday} appointments scheduled for today.
+        <p className="mt-1 text-[#86868B] text-xs font-normal">
+          {countToday === 0
+            ? `No tienes ${labels.appointments.toLowerCase()} programadas para hoy.`
+            : countToday === 1
+            ? `Tienes 1 ${labels.appointment.toLowerCase()} programada para hoy.`
+            : `Tienes ${countToday} ${labels.appointments.toLowerCase()} programadas para hoy.`}
         </p>
       </div>
 
-      {/* 4 Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        
+      {/* 4 iOS Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Metric 1: TOTAL */}
-        <div className="bg-frost-glass border border-white/20 p-5 rounded-2xl dark:bg-slate-900/45 dark:border-white/5 transition-all hover:bg-frost-glass-hover hover:scale-[1.01] hover:shadow-md cursor-pointer select-none">
+        <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-5 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] select-none">
           <div className="flex items-center justify-between">
-            <div className="h-8 w-8 rounded-lg bg-blue-50/80 dark:bg-blue-950/30 flex items-center justify-center">
-              <TrendingUp className="h-4.5 w-4.5 text-[#1A73E8] dark:text-blue-400" />
+            <div className="h-9 w-9 rounded-xl bg-[#007AFF]/10 flex items-center justify-center">
+              <TrendingUp className="h-4.5 w-4.5 text-[#007AFF]" />
             </div>
+            <span className="text-[11px] font-normal text-[#86868B]">
+              {totalAppointments > 0 ? "Histórico" : "Inicio"}
+            </span>
           </div>
-          <span className="mt-4 block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
-            Total
+          <span className="mt-4 block text-[11px] font-medium text-[#86868B] uppercase tracking-wider leading-none">
+            Total {labels.appointments}
           </span>
-          <h2 className="mt-2 text-2xl font-heading font-extrabold text-slate-800 dark:text-white leading-none">
+          <h2 className="mt-2 text-2xl font-semibold text-[#1D1D1F] tracking-tight leading-none">
             {displayTotal}
           </h2>
-          <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
-            </svg>
-            <span>+12%</span>
-          </span>
         </div>
 
         {/* Metric 2: CLIENTS */}
-        <div className="bg-frost-glass border border-white/20 p-5 rounded-2xl dark:bg-slate-900/45 dark:border-white/5 transition-all hover:bg-frost-glass-hover hover:scale-[1.01] hover:shadow-md cursor-pointer select-none">
+        <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-5 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] select-none">
           <div className="flex items-center justify-between">
-            <div className="h-8 w-8 rounded-lg bg-slate-50 dark:bg-slate-800/40 flex items-center justify-center">
-              <Users className="h-4.5 w-4.5 text-slate-500 dark:text-slate-400" />
+            <div className="h-9 w-9 rounded-xl bg-[#5856D6]/10 flex items-center justify-center">
+              <Users className="h-4.5 w-4.5 text-[#5856D6]" />
             </div>
+            <span className="text-[11px] font-normal text-[#86868B]">
+              {totalClients === 1 ? "Registrado" : "Registrados"}
+            </span>
           </div>
-          <span className="mt-4 block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
-            Clients
+          <span className="mt-4 block text-[11px] font-medium text-[#86868B] uppercase tracking-wider leading-none">
+            {labels.clients}
           </span>
-          <h2 className="mt-2 text-2xl font-heading font-extrabold text-slate-800 dark:text-white leading-none">
+          <h2 className="mt-2 text-2xl font-semibold text-[#1D1D1F] tracking-tight leading-none">
             {displayClients}
           </h2>
-          <span className="mt-2.5 block text-[10px] font-bold text-slate-500 dark:text-slate-450 leading-none">
-            Active this month
-          </span>
         </div>
 
         {/* Metric 3: PENDING */}
-        <div className="bg-frost-glass border border-white/20 p-5 rounded-2xl dark:bg-slate-900/45 dark:border-white/5 transition-all hover:bg-frost-glass-hover hover:scale-[1.01] hover:shadow-md cursor-pointer select-none">
+        <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-5 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] select-none">
           <div className="flex items-center justify-between">
-            <div className="h-8 w-8 rounded-lg bg-red-50 dark:bg-red-950/20 flex items-center justify-center">
-              <Clock className="h-4.5 w-4.5 text-red-500 dark:text-red-400" />
+            <div className="h-9 w-9 rounded-xl bg-[#FF9500]/10 flex items-center justify-center">
+              <Clock className="h-4.5 w-4.5 text-[#FF9500]" />
             </div>
+            {pendingAppointments > 0 ? (
+              <span className="inline-flex items-center rounded-full bg-[#FF9500]/10 px-2 py-0.5 text-[10px] font-medium text-[#FF9500] uppercase tracking-wider">
+                Por confirmar
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-[#34C759]/10 px-2 py-0.5 text-[10px] font-medium text-[#34C759] uppercase tracking-wider">
+                Al día
+              </span>
+            )}
           </div>
-          <span className="mt-4 block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
-            Pending
+          <span className="mt-4 block text-[11px] font-medium text-[#86868B] uppercase tracking-wider leading-none">
+            Pendientes
           </span>
-          <h2 className="mt-2 text-2xl font-heading font-extrabold text-slate-800 dark:text-white leading-none">
+          <h2 className="mt-2 text-2xl font-semibold text-[#1D1D1F] tracking-tight leading-none">
             {displayPending}
           </h2>
-          <span className="mt-2.5 block text-[10px] font-extrabold text-red-500 dark:text-red-400 leading-none">
-            Needs review
-          </span>
         </div>
 
         {/* Metric 4: THIS WEEK */}
-        <div className="bg-frost-glass border border-white/20 p-5 rounded-2xl dark:bg-slate-900/45 dark:border-white/5 transition-all hover:bg-frost-glass-hover hover:scale-[1.01] hover:shadow-md cursor-pointer select-none">
+        <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-5 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] select-none">
           <div className="flex items-center justify-between">
-            <div className="h-8 w-8 rounded-lg bg-blue-50/80 dark:bg-blue-950/30 flex items-center justify-center">
-              <Calendar className="h-4.5 w-4.5 text-[#1A73E8] dark:text-blue-400" />
+            <div className="h-9 w-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center">
+              <Calendar className="h-4.5 w-4.5 text-[#34C759]" />
             </div>
+            <span className="text-[11px] font-normal text-[#86868B]">Próximos 7d</span>
           </div>
-          <span className="mt-4 block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">
-            This Week
+          <span className="mt-4 block text-[11px] font-medium text-[#86868B] uppercase tracking-wider leading-none">
+            Esta Semana
           </span>
-          <h2 className="mt-2 text-2xl font-heading font-extrabold text-slate-800 dark:text-white leading-none">
+          <h2 className="mt-2 text-2xl font-semibold text-[#1D1D1F] tracking-tight leading-none">
             {displayThisWeek}
           </h2>
-          <span className="mt-2.5 block text-[10px] font-bold text-[#1A73E8] dark:text-blue-400 leading-none">
-            Full schedule
-          </span>
         </div>
-
       </div>
 
       {/* Main Grid Section */}
@@ -262,79 +256,114 @@ export default async function DashboardPage() {
         <div className="lg:col-span-8 space-y-6">
           
           {/* Card Wrapper */}
-          <div className="bg-frost-glass border border-white/20 p-6 rounded-3xl dark:bg-slate-900/45 dark:border-white/5 shadow-sm">
+          <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
             
             {/* Timeline Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/40 pb-4 mb-5">
-              <h2 className="font-heading font-extrabold text-base text-slate-850 dark:text-white">
-                Today's schedule
-              </h2>
+            <div className="flex items-center justify-between border-b border-black/[0.06] pb-4 mb-5">
+              <div>
+                <h2 className="font-semibold text-base text-[#1D1D1F] tracking-tight">
+                  Agenda de hoy
+                </h2>
+                <p className="text-xs text-[#86868B] mt-0.5 font-normal">
+                  {now.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
+                </p>
+              </div>
               <Link 
                 href="/dashboard/citas" 
-                className="flex items-center gap-1 text-xs font-bold text-[#1A73E8] dark:text-blue-400 hover:underline cursor-pointer select-none"
+                className="inline-flex items-center gap-1 text-xs font-medium text-[#007AFF] hover:underline active:scale-[0.98] transition-all cursor-pointer select-none"
               >
-                <span>View Full Calendar</span>
-                <ChevronRight className="h-4 w-4" />
+                <span>Ver calendario completo</span>
+                <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
 
-            {/* List */}
-            <div className="space-y-3">
-              {appointmentsToDisplay.map((apt) => (
-                <div
-                  key={apt.id}
-                  className="group relative flex items-center justify-between p-4 pl-6 rounded-2xl bg-white/40 border border-white/30 dark:bg-slate-900/20 dark:border-white/5 hover:bg-white/80 dark:hover:bg-slate-900/40 hover:border-slate-350 dark:hover:border-slate-800 transition-all duration-200 shadow-2xs cursor-pointer select-none"
-                >
-                  {/* Left accent bar based on status */}
-                  <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${
-                    apt.statusColor === "blue" ? "bg-[#1A73E8]" :
-                    apt.statusColor === "orange" ? "bg-amber-500" :
-                    "bg-slate-400"
-                  }`} />
-
-                  {/* Left Section: Time & Details */}
-                  <div className="flex items-center gap-4">
-                    {/* Time Column (vertical block matching mockup) */}
-                    <div className="w-16 flex-shrink-0 text-left">
-                      <span className="block font-heading font-bold text-[13px] text-slate-800 dark:text-slate-200 leading-none">
-                        {apt.time.split(" ")[0]}
-                      </span>
-                      <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1 leading-none">
-                        {apt.time.split(" ")[1]}
-                      </span>
-                    </div>
-
-                    {/* Divider vertical line inside row */}
-                    <div className="h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
-
-                    {/* Client and Service Info */}
-                    <div>
-                      <h4 className="font-heading font-bold text-sm text-slate-800 dark:text-slate-100 group-hover:text-[#1A73E8] dark:group-hover:text-blue-400 transition-colors leading-snug">
-                        {apt.clientName}
-                      </h4>
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-450 mt-0.5 leading-none">
-                        {apt.service}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right Section: Status Badge & Menu */}
-                  <div className="flex items-center gap-4">
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider ${
-                      apt.statusColor === "blue" ? "bg-blue-50 text-[#1A73E8] dark:bg-blue-950/30 dark:text-blue-300 border border-blue-100/30" :
-                      apt.statusColor === "orange" ? "bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-100/30" :
-                      "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200/50"
-                    }`}>
-                      {apt.status}
-                    </span>
-                    <button className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-650 transition-colors cursor-pointer">
-                      <MoreVertical className="h-4.5 w-4.5" />
-                    </button>
-                  </div>
-
+            {/* List or Empty State */}
+            {todayAppointments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-xl bg-black/[0.015] border border-black/[0.04]">
+                <div className="h-12 w-12 rounded-2xl bg-black/[0.03] text-[#86868B] flex items-center justify-center mb-3">
+                  <Calendar className="h-6 w-6" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-sm font-semibold text-[#1D1D1F]">
+                  Sin {labels.appointments.toLowerCase()} para hoy
+                </h3>
+                <p className="text-xs text-[#86868B] max-w-sm mt-1 leading-relaxed font-normal">
+                  Tu agenda está libre. Comparte tu enlace de reservas con tus {labels.clients.toLowerCase()} o agenda una sesión de forma manual.
+                </p>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+                  <Link
+                    href="/dashboard/citas"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0062cc] active:scale-[0.98] px-4 py-2 text-xs font-medium text-white shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>+ Agendar Cita Manual</span>
+                  </Link>
+                  <a
+                    href={publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-black/[0.08] bg-white hover:bg-black/[0.03] active:scale-[0.98] px-4 py-2 text-xs font-medium text-[#1D1D1F] transition-all cursor-pointer shadow-xs"
+                  >
+                    <span>Ver Portal de Pacientes</span>
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {todayAppointments.map((apt) => {
+                  const serviceName = apt.service?.name || labels.appointment;
+                  const staffName = apt.staff?.name ? ` · ${apt.staff.name}` : "";
+                  const isConfirmed = apt.status === "CONFIRMADA";
+
+                  return (
+                    <div
+                      key={apt.id}
+                      className="group relative flex items-center justify-between p-4 pl-5 rounded-xl bg-white border border-black/[0.06] hover:border-[#007AFF]/30 hover:shadow-xs active:scale-[0.99] transition-all duration-150 cursor-pointer select-none"
+                    >
+                      {/* Left accent bar */}
+                      <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${
+                        isConfirmed ? "bg-[#007AFF]" : "bg-[#FF9500]"
+                      }`} />
+
+                      {/* Left Section: Time & Details */}
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 flex-shrink-0 text-left">
+                          <span className="block font-semibold text-xs text-[#1D1D1F] leading-none">
+                            {formatTimeStr(new Date(apt.startTime))}
+                          </span>
+                        </div>
+
+                        <div className="h-7 w-px bg-black/[0.06]"></div>
+
+                        <div>
+                          <h4 className="font-medium text-xs text-[#1D1D1F] group-hover:text-[#007AFF] transition-colors leading-snug">
+                            {apt.clientName}
+                          </h4>
+                          <p className="text-[11px] text-[#86868B] mt-0.5 leading-none font-normal">
+                            {serviceName}{staffName}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right Section: Status Badge & Menu */}
+                      <div className="flex items-center gap-2.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-medium uppercase tracking-wider ${
+                          isConfirmed ? "bg-[#007AFF]/10 text-[#007AFF]" : "bg-[#FF9500]/10 text-[#FF9500]"
+                        }`}>
+                          {apt.status}
+                        </span>
+                        <Link
+                          href="/dashboard/citas"
+                          className="p-1 rounded-lg hover:bg-black/[0.04] text-[#86868B] hover:text-[#1D1D1F] transition-colors cursor-pointer"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
           </div>
 
@@ -344,130 +373,135 @@ export default async function DashboardPage() {
         <div className="lg:col-span-4 space-y-6">
           
           {/* Widget 1: Booking Link */}
-          <div className="bg-frost-glass border border-white/20 p-6 rounded-3xl dark:bg-slate-900/45 dark:border-white/5 shadow-sm">
+          <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
             <BookingLinkWidget url={publicUrl} slug={professional.slug} />
           </div>
 
           {/* Widget 2: Quick Actions */}
-          <div className="bg-frost-glass border border-white/20 p-6 rounded-3xl dark:bg-slate-900/45 dark:border-white/5 shadow-sm">
-            <h3 className="font-heading font-bold text-sm text-slate-800 dark:text-slate-200">
-              Quick Actions
+          <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+            <h3 className="font-medium text-xs text-[#86868B] uppercase tracking-wider">
+              Acciones Rápidas
             </h3>
             
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-3.5 grid grid-cols-2 gap-2.5">
               {/* Tile 1: Add Client */}
               <Link
                 href="/dashboard/clientes"
-                className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white/45 border border-white/30 hover:bg-white/80 dark:bg-slate-900/30 dark:border-white/5 dark:hover:bg-slate-900/60 shadow-2xs hover:scale-102 transition-all cursor-pointer group"
+                className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-black/[0.02] hover:bg-black/[0.04] active:scale-[0.98] transition-all cursor-pointer group border border-black/[0.04]"
               >
-                <UserPlus className="h-5 w-5 text-[#1A73E8] dark:text-blue-400 transition-transform group-hover:scale-105" />
-                <span className="mt-2 text-3xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 text-center leading-none">
-                  Add Client
+                <div className="h-9 w-9 rounded-xl bg-[#007AFF]/10 flex items-center justify-center mb-2 text-[#007AFF]">
+                  <UserPlus className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-[11px] font-medium text-[#1D1D1F] text-center leading-tight">
+                  + {labels.client}
                 </span>
               </Link>
 
-              {/* Tile 2: Send Email */}
-              <button
-                type="button"
-                className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white/45 border border-white/30 hover:bg-white/80 dark:bg-slate-900/30 dark:border-white/5 dark:hover:bg-slate-900/60 shadow-2xs hover:scale-102 transition-all cursor-pointer group text-left w-full"
-              >
-                <Mail className="h-5 w-5 text-[#1A73E8] dark:text-blue-400 transition-transform group-hover:scale-105" />
-                <span className="mt-2 text-3xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 text-center leading-none">
-                  Send Email
-                </span>
-              </button>
-
-              {/* Tile 3: Invoicing */}
-              <button
-                type="button"
-                className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white/45 border border-white/30 hover:bg-white/80 dark:bg-slate-900/30 dark:border-white/5 dark:hover:bg-slate-900/60 shadow-2xs hover:scale-102 transition-all cursor-pointer group text-left w-full"
-              >
-                <FileText className="h-5 w-5 text-[#1A73E8] dark:text-blue-400 transition-transform group-hover:scale-105" />
-                <span className="mt-2 text-3xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 text-center leading-none">
-                  Invoicing
-                </span>
-              </button>
-
-              {/* Tile 4: Reports */}
+              {/* Tile 2: Add Appointment */}
               <Link
-                href="/dashboard/analytics"
-                className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white/45 border border-white/30 hover:bg-white/80 dark:bg-slate-900/30 dark:border-white/5 dark:hover:bg-slate-900/60 shadow-2xs hover:scale-102 transition-all cursor-pointer group"
+                href="/dashboard/citas"
+                className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-black/[0.02] hover:bg-black/[0.04] active:scale-[0.98] transition-all cursor-pointer group border border-black/[0.04]"
               >
-                <BarChart2 className="h-5 w-5 text-[#1A73E8] dark:text-blue-400 transition-transform group-hover:scale-105" />
-                <span className="mt-2 text-3xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 text-center leading-none">
-                  Reports
+                <div className="h-9 w-9 rounded-xl bg-[#34C759]/10 flex items-center justify-center mb-2 text-[#34C759]">
+                  <Calendar className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-[11px] font-medium text-[#1D1D1F] text-center leading-tight">
+                  + {labels.appointment}
+                </span>
+              </Link>
+
+              {/* Tile 3: Clinical Records or Services */}
+              <Link
+                href={isClinical ? "/dashboard/expedientes" : "/dashboard/servicios"}
+                className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-black/[0.02] hover:bg-black/[0.04] active:scale-[0.98] transition-all cursor-pointer group border border-black/[0.04]"
+              >
+                <div className="h-9 w-9 rounded-xl bg-[#5856D6]/10 flex items-center justify-center mb-2 text-[#5856D6]">
+                  <FileText className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-[11px] font-medium text-[#1D1D1F] text-center leading-tight">
+                  {isClinical ? "Expedientes" : "Servicios"}
+                </span>
+              </Link>
+
+              {/* Tile 4: Payments */}
+              <Link
+                href="/dashboard/pagos"
+                className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-black/[0.02] hover:bg-black/[0.04] active:scale-[0.98] transition-all cursor-pointer group border border-black/[0.04]"
+              >
+                <div className="h-9 w-9 rounded-xl bg-[#FF9500]/10 flex items-center justify-center mb-2 text-[#FF9500]">
+                  <BarChart2 className="h-4.5 w-4.5" />
+                </div>
+                <span className="text-[11px] font-medium text-[#1D1D1F] text-center leading-tight">
+                  Verificar Pagos
                 </span>
               </Link>
             </div>
           </div>
 
-          {/* Widget 3: Reminders */}
-          <div className="relative bg-frost-glass border border-white/20 p-6 rounded-3xl dark:bg-slate-900/45 dark:border-white/5 shadow-sm pr-16 overflow-hidden">
-            <h3 className="font-heading font-bold text-sm text-slate-800 dark:text-slate-200">
-              Reminders
+          {/* Widget 3: Real Business Health & Reminders */}
+          <div className="bg-white/80 backdrop-blur-2xl border border-black/[0.06] p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+            <h3 className="font-medium text-xs text-[#86868B] uppercase tracking-wider">
+              Estado del Consultorio
             </h3>
 
-            <ul className="mt-4 space-y-3">
-              {/* Reminder 1 */}
-              <li className="flex items-start gap-2.5">
-                <span className="mt-1.5 h-2 w-2 rounded-full bg-red-500 shrink-0"></span>
-                <div>
-                  <h4 className="font-heading font-bold text-[12px] text-slate-800 dark:text-slate-200 leading-none">
-                    Patient chart updates
-                  </h4>
-                  <p className="text-4xs text-slate-500 dark:text-slate-400 uppercase tracking-widest font-black mt-1 leading-none">
-                    Due by 5:00 PM
-                  </p>
-                </div>
-              </li>
-
-              {/* Reminder 2 */}
-              <li className="flex items-start gap-2.5">
-                <span className="mt-1.5 h-2 w-2 rounded-full bg-[#1A73E8] dark:bg-blue-400 shrink-0"></span>
-                <div>
-                  <h4 className="font-heading font-bold text-[12px] text-slate-800 dark:text-slate-200 leading-none">
-                    Weekly staff sync
-                  </h4>
-                  <p className="text-4xs text-slate-500 dark:text-slate-400 uppercase tracking-widest font-black mt-1 leading-none">
-                    Tomorrow, 10:00 AM
-                  </p>
-                </div>
-              </li>
-            </ul>
-
-            {/* Circular FAB button on the bottom right corner of the reminders card */}
-            <button
-              type="button"
-              className="absolute bottom-5 right-5 h-10 w-10 bg-white border border-slate-200/50 rounded-full flex items-center justify-center text-[#1A73E8] shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer dark:bg-slate-900 dark:border-slate-800 dark:text-blue-400"
-              title="Add reminder"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
+            {smartAlerts.length === 0 ? (
+              <div className="mt-3.5 p-3.5 rounded-xl bg-[#34C759]/10 border border-[#34C759]/20 flex items-center gap-2.5">
+                <span className="h-2 w-2 rounded-full bg-[#34C759] shrink-0"></span>
+                <p className="text-xs text-[#34C759] font-medium">
+                  ✓ Todo al día. Sin tareas ni cobros pendientes.
+                </p>
+              </div>
+            ) : (
+              <ul className="mt-3.5 space-y-2.5">
+                {smartAlerts.map((alert, idx) => (
+                  <li key={idx}>
+                    <Link
+                      href={alert.href}
+                      className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-black/[0.03] transition-colors group cursor-pointer"
+                    >
+                      <span
+                        className="mt-1.5 h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: alert.color }}
+                      ></span>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-medium text-[#1D1D1F] group-hover:text-[#007AFF] transition-colors leading-snug truncate">
+                          {alert.title}
+                        </h4>
+                        <p className="text-[11px] text-[#86868B] font-normal leading-none mt-0.5">
+                          {alert.subtitle}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-[#86868B] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
         </div>
 
       </div>
 
-      {/* Footer block spanning full-width */}
-      <footer className="mt-16 border-t border-slate-200/50 dark:border-slate-800/40 pt-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <span className="font-heading font-extrabold text-xs tracking-wider text-slate-400 dark:text-slate-500 uppercase">
+      {/* Footer block */}
+      <footer className="mt-16 border-t border-[#E5E5EA] pt-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <span className="font-heading font-semibold text-xs tracking-wider text-[#86868B] uppercase">
           My Appointment
         </span>
         <div className="flex flex-wrap items-center gap-6">
-          <Link href="/privacy" className="text-3xs font-extrabold uppercase tracking-wider text-slate-550 dark:text-slate-450 hover:text-[#1A73E8] dark:hover:text-blue-400 transition-colors">
-            Privacy Policy
+          <Link href="/privacy" className="text-xs font-medium text-[#86868B] hover:text-[#007AFF] transition-colors">
+            Política de Privacidad
           </Link>
-          <Link href="/terms" className="text-3xs font-extrabold uppercase tracking-wider text-slate-550 dark:text-slate-450 hover:text-[#1A73E8] dark:hover:text-blue-400 transition-colors">
-            Terms of Service
+          <Link href="/terms" className="text-xs font-medium text-[#86868B] hover:text-[#007AFF] transition-colors">
+            Términos de Servicio
           </Link>
-          <Link href="/support" className="text-3xs font-extrabold uppercase tracking-wider text-slate-550 dark:text-slate-450 hover:text-[#1A73E8] dark:hover:text-blue-400 transition-colors">
-            Support
+          <Link href="/support" className="text-xs font-medium text-[#86868B] hover:text-[#007AFF] transition-colors">
+            Soporte
           </Link>
-          <Link href="/api-status" className="text-3xs font-extrabold uppercase tracking-wider text-slate-550 dark:text-slate-450 hover:text-[#1A73E8] dark:hover:text-blue-400 transition-colors">
-            API Status
+          <Link href="/api-status" className="text-xs font-medium text-[#86868B] hover:text-[#007AFF] transition-colors">
+            Estado de la API
           </Link>
-          <span className="text-3xs text-slate-400 dark:text-slate-500 font-semibold md:ml-6">
+          <span className="text-xs text-[#86868B] font-normal md:ml-6">
             © 2026
           </span>
         </div>

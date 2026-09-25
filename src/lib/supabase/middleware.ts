@@ -36,6 +36,32 @@ export async function updateSession(request: NextRequest) {
   const isProtected =
     path.startsWith("/dashboard") || path.startsWith("/onboarding");
 
+  const hostname = request.headers.get("host") || "";
+  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000").replace(/['"]/g, "");
+  const isRootDomain =
+    hostname === rootDomain ||
+    hostname === `www.${rootDomain}` ||
+    hostname === "localhost:3000" ||
+    hostname === "localhost";
+
+  // Si estamos en un subdominio de tenant
+  if (!isRootDomain) {
+    if (isProtected || isAuthRoute) {
+      const url = request.nextUrl.clone();
+      url.host = rootDomain;
+      if (isProtected) {
+        url.pathname = "/login";
+        url.searchParams.set("next", path);
+      } else {
+        url.pathname = path;
+      }
+      return NextResponse.redirect(url);
+    }
+    // En subdominios, no redirigir "/" a "/dashboard" (incluso si está logueado)
+    return supabaseResponse;
+  }
+
+  // Dominio principal (Root Domain)
   if (!user && isProtected && !isPublicAuthCallback) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

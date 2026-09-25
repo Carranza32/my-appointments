@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getProfessional, requireAuth } from "@/lib/auth";
+import { withTenant } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { canCreateLocation } from "@/lib/plan-guard";
 
 export type LocationDTO = {
   id: string;
@@ -13,12 +14,10 @@ export type LocationDTO = {
 };
 
 export async function getLocationsList(): Promise<LocationDTO[]> {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return [];
+  const tenant = await withTenant();
 
   const rows = await prisma.location.findMany({
-    where: { userId: professional.id },
+    where: { userId: tenant.userId },
     orderBy: { name: "asc" },
   });
 
@@ -36,9 +35,12 @@ export async function createLocation(input: {
   address: string;
   phone?: string;
 }) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
+
+  const planCheck = await canCreateLocation(tenant.userId, tenant.planTier);
+  if (!planCheck.allowed) {
+    return { error: planCheck.reason };
+  }
 
   const name = input.name.trim();
   const address = input.address.trim();
@@ -53,7 +55,7 @@ export async function createLocation(input: {
 
   const location = await prisma.location.create({
     data: {
-      userId: professional.id,
+      userId: tenant.userId,
       name,
       address,
       phone,
@@ -72,9 +74,7 @@ export async function updateLocation(
     phone?: string;
   }
 ) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
 
   const name = input.name.trim();
   const address = input.address.trim();
@@ -88,7 +88,7 @@ export async function updateLocation(
   }
 
   const existing = await prisma.location.findFirst({
-    where: { id, userId: professional.id },
+    where: { id, userId: tenant.userId },
   });
 
   if (!existing) {
@@ -109,12 +109,10 @@ export async function updateLocation(
 }
 
 export async function deleteLocation(id: string) {
-  await requireAuth();
-  const professional = await getProfessional();
-  if (!professional) return { error: "No autorizado." };
+  const tenant = await withTenant();
 
   const existing = await prisma.location.findFirst({
-    where: { id, userId: professional.id },
+    where: { id, userId: tenant.userId },
   });
 
   if (!existing) {

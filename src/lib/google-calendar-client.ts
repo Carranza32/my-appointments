@@ -92,6 +92,7 @@ export type CreateCalendarEventParams = {
   startTime: Date;
   endTime: Date;
   attendeeEmail: string;
+  timeZone?: string;
 };
 
 function toLocalDateTimeString(date: Date): string {
@@ -105,7 +106,7 @@ export async function createGoogleCalendarEvent(
 ): Promise<string> {
   const oauth2 = getOAuth2Client();
   const calendar = bindTokenRefresh(googleAccount, oauth2);
-  const timeZone = getBusinessTimeZone();
+  const timeZone = params.timeZone || getBusinessTimeZone();
 
   const response = await calendar.events.insert({
     calendarId: "primary",

@@ -1,9 +1,9 @@
-import { Rubro } from "@prisma/client";
+import { getRubroConfig } from "./rubros";
 
 export type FormFieldDef = {
   name: string;
   label: string;
-  type: "text" | "textarea" | "select";
+  type: "text" | "textarea" | "select" | "boolean" | "number" | "email" | "tel";
   required?: boolean;
   options?: string[];
 };
@@ -20,37 +20,7 @@ export function parseFormFieldsFromJson(value: unknown): FormFieldDef[] {
   ) as FormFieldDef[];
 }
 
-export function getDefaultFormFields(rubro: Rubro): FormFieldDef[] {
-  switch (rubro) {
-    case Rubro.SALUD:
-      return [
-        {
-          name: "motivo",
-          label: "Motivo de la consulta",
-          type: "textarea",
-          required: true,
-        },
-      ];
-    case Rubro.BELLEZA:
-      return [
-        {
-          name: "tipoCorte",
-          label: "Tipo de corte o servicio",
-          type: "select",
-          required: true,
-          options: ["Corte", "Color", "Peinado", "Otro"],
-        },
-      ];
-    case Rubro.CONSULTORIA:
-      return [
-        {
-          name: "tema",
-          label: "Tema de la sesión",
-          type: "text",
-          required: true,
-        },
-      ];
-    default:
-      return [];
-  }
+export function getDefaultFormFields(rubro: string): FormFieldDef[] {
+  const config = getRubroConfig(rubro);
+  return config.defaultFormFields;
 }

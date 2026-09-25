@@ -26,16 +26,14 @@ const DAYS = [
 ];
 
 const RUBROS = [
-  { value: "medico", label: "Médico / Clínica", icon: "🩺" },
-  { value: "psicologo", label: "Psicólogo / Terapeuta", icon: "🧠" },
-  { value: "nutricionista", label: "Nutricionista", icon: "🥗" },
-  { value: "dentista", label: "Dentista", icon: "🦷" },
-  { value: "fisioterapeuta", label: "Fisioterapeuta", icon: "💪" },
-  { value: "coach", label: "Coach / Consultor", icon: "📊" },
-  { value: "abogado", label: "Abogado / Legal", icon: "⚖️" },
-  { value: "estetica", label: "Estética / Belleza", icon: "💅" },
-  { value: "entrenador", label: "Entrenador personal", icon: "🏋️" },
-  { value: "otro", label: "Otro", icon: "✨" },
+  { value: "SALUD", label: "Salud y Medicina", icon: "🩺" },
+  { value: "BELLEZA", label: "Belleza y Estética", icon: "💇" },
+  { value: "CONSULTORIA", label: "Consultoría y Coaching", icon: "💼" },
+  { value: "FITNESS", label: "Fitness y Deporte", icon: "🏋️" },
+  { value: "EDUCACION", label: "Educación y Tutorías", icon: "🎓" },
+  { value: "VETERINARIA", label: "Veterinaria", icon: "🐾" },
+  { value: "LEGAL", label: "Servicios Legales", icon: "⚖️" },
+  { value: "GENERAL", label: "General / Otro", icon: "🗓️" },
 ];
 
 const DURATIONS = [15, 30, 45, 60, 90, 120];
@@ -239,25 +237,25 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
   if (done) {
     const fullLink = typeof window !== "undefined" ? `${window.location.origin}${publicUrl}` : publicUrl;
     return (
-      <div className="max-w-md w-full rounded-3xl border border-slate-200/85 bg-white p-8 text-center shadow-frost dark:border-slate-800/80 dark:bg-slate-900 dark:shadow-frost-dark backdrop-blur-md animate-in zoom-in-95 duration-350">
+      <div className="max-w-md w-full rounded-3xl border border-slate-200/85 bg-white p-8 text-center shadow-frost    backdrop-blur-md animate-in zoom-in-95 duration-350">
         <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-3xl font-bold shadow-md shadow-emerald-500/20 animate-bounce">
           <CheckCircle className="h-8 w-8" />
         </div>
-        <h2 className="text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100 font-heading">
+        <h2 className="text-2xl font-extrabold tracking-tight text-slate-800  font-heading">
           ¡Tu perfil está listo!
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <p className="mt-3 text-sm leading-relaxed text-slate-600 ">
           Tu portal de reservas ya está activo. Comparte este enlace con tus clientes para comenzar a agendar citas.
         </p>
 
-        <div className="my-6 flex items-center rounded-2xl border border-slate-205 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/50 overflow-hidden">
-          <span className="flex-1 px-4 py-3 text-xs font-mono text-left text-primary-650 dark:text-primary-400 truncate">
+        <div className="my-6 flex items-center rounded-2xl border border-slate-205 bg-slate-50   overflow-hidden">
+          <span className="flex-1 px-4 py-3 text-xs font-mono text-left text-[#007AFF] [#007AFF] truncate">
             {fullLink}
           </span>
           <button
             onClick={copyLink}
             type="button"
-            className="px-4.5 py-3 bg-primary-600 hover:bg-primary-700 text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1"
+            className="px-4.5 py-3 bg-[#007AFF] hover:bg-[#005cbf] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1"
           >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             <span>{copied ? "Copiado" : "Copiar"}</span>
@@ -269,7 +267,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
             href={publicUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-350 dark:hover:bg-slate-800 transition-all text-center"
+            className="flex-1 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50     transition-all text-center"
           >
             Ver Portal Público
           </a>
@@ -278,7 +276,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
               router.push("/dashboard");
               router.refresh();
             }}
-            className="flex-1 inline-flex items-center justify-center rounded-xl bg-primary-600 py-3 text-sm font-extrabold text-white hover:bg-primary-700 shadow-md shadow-primary-500/10 active:scale-[0.98] transition-all cursor-pointer text-center"
+            className="flex-1 inline-flex items-center justify-center rounded-xl bg-[#007AFF] py-3 text-sm font-extrabold text-white hover:bg-[#005cbf] shadow-md shadow-[#007AFF]/10 active:scale-[0.98] transition-all cursor-pointer text-center"
           >
             Ir al Dashboard
           </button>
@@ -291,16 +289,16 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
     <div className="w-full max-w-2xl flex flex-col items-center">
       {/* Top Branding Bar */}
       <div className="w-full flex justify-between items-center py-4 px-1 text-xs text-slate-500 font-semibold mb-2">
-        <span className="font-extrabold text-primary-600 dark:text-primary-400 font-heading text-base tracking-tight">
+        <span className="font-extrabold text-[#007AFF] [#007AFF] font-heading text-base tracking-tight">
           My Appointment
         </span>
-        <span className="text-slate-400 dark:text-slate-500">{userEmail}</span>
+        <span className="text-slate-400 ">{userEmail}</span>
       </div>
 
       {/* Main Container Card */}
-      <div className="w-full rounded-3xl border border-slate-200/85 bg-white p-8 md:p-10 shadow-frost dark:border-slate-800/80 dark:bg-slate-900 dark:shadow-frost-dark backdrop-blur-md transition-colors duration-300 space-y-8">
+      <div className="w-full rounded-2xl border border-white/75 bg-white/65 p-7 md:p-9 shadow-xl backdrop-blur-xl space-y-7" style={{ boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.95), 0 4px 20px rgba(0, 0, 0, 0.02)' }}>
         {/* Descriptive Connecting Progress Steps */}
-        <div className="flex items-center justify-between w-full border-b border-slate-100 dark:border-slate-850 pb-6">
+        <div className="flex items-center justify-between w-full border-b border-slate-100  pb-6">
           {stepsList.map((label, i) => {
             const isCompleted = i < step;
             const isActive = i === step;
@@ -309,8 +307,8 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                 <div
                   className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs border transition-all duration-300 ${
                     isCompleted || isActive
-                      ? "bg-primary-600 border-primary-600 text-white shadow-sm shadow-primary-500/10"
-                      : "bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700"
+                      ? "bg-[#007AFF] border-[#007AFF] text-white shadow-sm shadow-[#007AFF]/10"
+                      : "bg-slate-100 border-slate-200 text-slate-400  "
                   }`}
                 >
                   {isCompleted ? (
@@ -322,8 +320,8 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                 <span
                   className={`text-xs font-bold transition-colors ${
                     isActive || isCompleted
-                      ? "text-slate-850 dark:text-slate-105"
-                      : "text-slate-400 dark:text-slate-500"
+                      ? "text-slate-850 "
+                      : "text-slate-400 "
                   }`}
                 >
                   {label}
@@ -331,7 +329,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                 {i < stepsList.length - 1 && (
                   <div
                     className={`flex-1 h-0.5 rounded-full mx-2 hidden sm:block ${
-                      isCompleted ? "bg-primary-600" : "bg-slate-200 dark:bg-slate-800"
+                      isCompleted ? "bg-[#007AFF]" : "bg-slate-200 "
                     }`}
                   />
                 )}
@@ -342,17 +340,17 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
 
         {/* Step Header */}
         <div className="text-center flex flex-col items-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-950/30 text-2xl shadow-inner mb-3.5">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#007AFF]/10  text-2xl shadow-inner mb-3.5">
             {step === 0 && "👤"}
             {step === 1 && "📅"}
             {step === 2 && "⚙️"}
           </div>
-          <h2 className="text-xl font-black tracking-tight text-slate-850 dark:text-slate-50 font-heading">
+          <h2 className="text-xl font-black tracking-tight text-slate-850  font-heading">
             {step === 0 && "Tu perfil público"}
             {step === 1 && "Tu disponibilidad semanal"}
             {step === 2 && "Duración de tus citas"}
           </h2>
-          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 max-w-md leading-relaxed font-semibold">
+          <p className="mt-1.5 text-xs text-slate-500  max-w-md leading-relaxed font-semibold">
             {step === 0 && "Así te verán tus clientes cuando visiten tu portal de reservas."}
             {step === 1 && "Define en qué días y horarios recibes citas. Puedes editarlo después."}
             {step === 2 && "Configura cuánto dura cada cita y si necesitas tiempo entre ellas."}
@@ -367,7 +365,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Display Name */}
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                     Nombre o Nombre Comercial *
                   </label>
                   <div className="relative">
@@ -376,18 +374,18 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                       value={profile.displayName}
                       onChange={handleNameChange}
                       placeholder="Ej. Dra. Ana García o Clínica Bienestar"
-                      className="w-full rounded-xl border border-slate-205 bg-slate-50 pl-3.5 pr-10 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-100"
+                      className="w-full rounded-xl border border-slate-205 bg-slate-50 pl-3.5 pr-10 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10   "
                     />
-                    <User className="absolute right-3.5 top-3 h-4.5 w-4.5 text-slate-450 dark:text-slate-550 pointer-events-none" />
+                    <User className="absolute right-3.5 top-3 h-4.5 w-4.5 text-slate-450  pointer-events-none" />
                   </div>
                 </div>
 
                 {/* Slug / URL Link */}
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                     Tu Enlace de Reservas *
                   </label>
-                  <div className="flex items-center rounded-xl border border-slate-205 bg-slate-50 overflow-hidden focus-within:border-primary-500 focus-within:ring-4 focus-within:ring-primary-500/10 dark:border-slate-800 dark:bg-slate-950/50">
+                  <div className="flex items-center rounded-xl border border-slate-205 bg-slate-50 overflow-hidden focus-within:border-[#007AFF] focus-within:ring-4 focus-within:ring-[#007AFF]/10  ">
                     <span className="pl-3.5 text-xs font-semibold text-slate-400 select-none">
                       myappointment.app/
                     </span>
@@ -399,7 +397,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                         updateProfile("slugManual", true);
                       }}
                       placeholder="mi-nombre"
-                      className="flex-1 bg-transparent border-0 px-1 py-2.5 text-xs font-bold text-slate-700 outline-hidden dark:text-slate-100"
+                      className="flex-1 bg-transparent border-0 px-1 py-2.5 text-xs font-bold text-slate-700 outline-hidden "
                     />
                     <div className="pr-3.5 flex items-center justify-center">
                       {slugStatus === "checking" && (
@@ -423,7 +421,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
 
               {/* Rubro selection emoji grid */}
               <div className="space-y-2">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                   ¿A qué te dedicas? *
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -434,8 +432,8 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                       onClick={() => updateProfile("rubro", r.value)}
                       className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer gap-1.5 ${
                         profile.rubro === r.value
-                          ? "border-primary-600 bg-primary-50/50 text-primary-750 dark:bg-primary-950/20 dark:text-primary-300 dark:border-primary-800"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800"
+                          ? "border-[#007AFF] bg-[#007AFF]/10/50 text-[#007AFF]   [#007AFF]/25"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300    "
                       }`}
                     >
                       <span className="text-xl">{r.icon}</span>
@@ -449,7 +447,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
 
               {/* Bio description */}
               <div className="space-y-2">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                   Descripción Breve <span className="font-semibold text-slate-400 lowercase">(opcional)</span>
                 </label>
                 <textarea
@@ -457,10 +455,10 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                   value={profile.bio}
                   onChange={(e) => updateProfile("bio", e.target.value)}
                   placeholder="Ej. Médico especialista en medicina general con 10 años de experiencia. Atención personalizada y cálida."
-                  className="w-full rounded-xl border border-slate-205 bg-slate-55 px-3.5 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-100 resize-none"
+                  className="w-full rounded-xl border border-slate-205 bg-slate-55 px-3.5 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10    resize-none"
                   maxLength={300}
                 />
-                <p className="text-[9px] text-right text-slate-400 dark:text-slate-500">
+                <p className="text-[9px] text-right text-slate-400 ">
                   {profile.bio.length} / 300
                 </p>
               </div>
@@ -468,7 +466,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
               {/* Phone + Location */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                     Teléfono <span className="font-semibold text-slate-400 lowercase">(opcional)</span>
                   </label>
                   <div className="relative">
@@ -477,14 +475,14 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                       value={profile.phone}
                       onChange={(e) => updateProfile("phone", e.target.value)}
                       placeholder="+503 7000 0000"
-                      className="w-full rounded-xl border border-slate-205 bg-slate-55 pl-3.5 pr-10 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-800 dark:bg-slate-955/50 dark:text-slate-100"
+                      className="w-full rounded-xl border border-slate-205 bg-slate-55 pl-3.5 pr-10 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10   "
                     />
-                    <Phone className="absolute right-3.5 top-3 h-4.5 w-4.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                    <Phone className="absolute right-3.5 top-3 h-4.5 w-4.5 text-slate-400  pointer-events-none" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                     Ciudad / Ubicación <span className="font-semibold text-slate-400 lowercase">(opcional)</span>
                   </label>
                   <div className="relative">
@@ -493,9 +491,9 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                       value={profile.location}
                       onChange={(e) => updateProfile("location", e.target.value)}
                       placeholder="San Salvador, El Salvador"
-                      className="w-full rounded-xl border border-slate-205 bg-slate-55 pl-3.5 pr-10 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-slate-800 dark:bg-slate-955/50 dark:text-slate-100"
+                      className="w-full rounded-xl border border-slate-205 bg-slate-55 pl-3.5 pr-10 py-2.5 text-xs font-bold text-slate-700 outline-hidden focus:border-[#007AFF] focus:ring-4 focus:ring-[#007AFF]/10   "
                     />
-                    <MapPin className="absolute right-3.5 top-3 h-4.5 w-4.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                    <MapPin className="absolute right-3.5 top-3 h-4.5 w-4.5 text-slate-400  pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -515,8 +513,8 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                       key={key}
                       className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-4.5 rounded-2xl border transition-all duration-300 ${
                         enabled
-                          ? "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 border-l-4 border-l-primary-600"
-                          : "border-slate-200/50 bg-slate-50/70 dark:border-slate-800/30 dark:bg-slate-950/40 opacity-70"
+                          ? "border-slate-200 bg-white   border-l-4 border-l-[#007AFF]"
+                          : "border-slate-200/50 bg-slate-50/70   opacity-70"
                       }`}
                     >
                       <div className="flex items-center gap-3.5">
@@ -524,7 +522,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                           onClick={() => toggleDay(key)}
                           type="button"
                           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-300 focus:outline-hidden ${
-                            enabled ? "bg-primary-600" : "bg-slate-200 dark:bg-slate-800"
+                            enabled ? "bg-[#007AFF]" : "bg-slate-200 "
                           }`}
                           aria-label={`${enabled ? "Deshabilitar" : "Habilitar"} ${label}`}
                         >
@@ -534,7 +532,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                             }`}
                           />
                         </button>
-                        <span className="text-sm font-extrabold text-slate-855 dark:text-slate-50 w-20">
+                        <span className="text-sm font-extrabold text-slate-855  w-20">
                           {label}
                         </span>
                       </div>
@@ -548,14 +546,14 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                                   type="time"
                                   value={range.start}
                                   onChange={(e) => updateRange(key, ri, "start", e.target.value)}
-                                  className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 outline-hidden dark:border-slate-805 dark:bg-slate-950 dark:text-slate-100"
+                                  className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 outline-hidden   "
                                 />
                                 <span className="text-xs text-slate-400">—</span>
                                 <input
                                   type="time"
                                   value={range.end}
                                   onChange={(e) => updateRange(key, ri, "end", e.target.value)}
-                                  className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 outline-hidden dark:border-slate-805 dark:bg-slate-950 dark:text-slate-100"
+                                  className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 outline-hidden   "
                                 />
 
                                 {day.ranges.length > 1 && (
@@ -574,14 +572,14 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                               <button
                                 type="button"
                                 onClick={() => addRange(key)}
-                                className="text-3xs font-black uppercase tracking-wider text-primary-650 hover:text-primary-700 bg-primary-50 px-2.5 py-1.5 rounded-lg border border-primary-100/50 cursor-pointer block md:ml-auto"
+                                className="text-3xs font-black uppercase tracking-wider text-[#007AFF] hover:text-[#005cbf] bg-[#007AFF]/10 px-2.5 py-1.5 rounded-lg border border-[#007AFF]/20/50 cursor-pointer block md:ml-auto"
                               >
                                 + Agregar pausa de almuerzo
                               </button>
                             )}
                           </div>
                         ) : (
-                          <span className="text-xs font-semibold text-slate-400 dark:text-slate-550 italic">
+                          <span className="text-xs font-semibold text-slate-400  italic">
                             No disponible
                           </span>
                         )}
@@ -598,7 +596,7 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
             <div className="space-y-6">
               {/* Duration choice pills */}
               <div className="space-y-2.5">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                   ¿Cuánto dura cada cita?
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -609,8 +607,8 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                       onClick={() => updateSlot("duration", min)}
                       className={`px-4.5 py-2.5 rounded-xl border text-xs font-extrabold transition-all cursor-pointer ${
                         slot.duration === min
-                          ? "border-primary-600 bg-primary-50/50 text-primary-750 dark:bg-primary-950/20 dark:text-primary-300 dark:border-primary-800 font-bold"
-                          : "border-slate-205 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                          ? "border-[#007AFF] bg-[#007AFF]/10/50 text-[#007AFF]   [#007AFF]/25 font-bold"
+                          : "border-slate-205 bg-white text-slate-700 hover:border-slate-300    "
                       }`}
                     >
                       {durationLabel(min)}
@@ -621,10 +619,10 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
 
               {/* Buffer rest choice pills */}
               <div className="space-y-2.5">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-550">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-450 ">
                   Tiempo de descanso entre citas
                 </label>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                <p className="text-[10px] text-slate-400 ">
                   Tiempo para prepararte o tomar notas antes de la siguiente cita.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -635,8 +633,8 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
                       onClick={() => updateSlot("buffer", min)}
                       className={`px-4.5 py-2.5 rounded-xl border text-xs font-extrabold transition-all cursor-pointer ${
                         slot.buffer === min
-                          ? "border-primary-600 bg-primary-50/50 text-primary-750 dark:bg-primary-950/20 dark:text-primary-300 dark:border-primary-800 font-bold"
-                          : "border-slate-205 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                          ? "border-[#007AFF] bg-[#007AFF]/10/50 text-[#007AFF]   [#007AFF]/25 font-bold"
+                          : "border-slate-205 bg-white text-slate-700 hover:border-slate-300    "
                       }`}
                     >
                       {min === 0 ? "Sin pausa" : `${min} min`}
@@ -646,43 +644,43 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
               </div>
 
               {/* Preview Resumen Card */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5 dark:border-slate-800 dark:bg-slate-955/40 space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary-650 dark:text-primary-400">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5   space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#007AFF] [#007AFF]">
                   Resumen de tu configuración
                 </p>
 
                 <div className="grid grid-cols-1 gap-2.5 text-xs">
                   <div className="flex justify-between items-baseline gap-4">
-                    <span className="text-slate-450 dark:text-slate-500 shrink-0">Portal público:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                    <span className="text-slate-450  shrink-0">Portal público:</span>
+                    <span className="font-semibold text-slate-800  truncate">
                       myappointment.app/<strong>{profile.slug || "tu-nombre"}</strong>
                     </span>
                   </div>
                   <div className="flex justify-between items-baseline gap-4">
-                    <span className="text-slate-450 dark:text-slate-500 shrink-0">Nombre:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-105">{profile.displayName || "—"}</span>
+                    <span className="text-slate-450  shrink-0">Nombre:</span>
+                    <span className="font-semibold text-slate-800 ">{profile.displayName || "—"}</span>
                   </div>
                   <div className="flex justify-between items-baseline gap-4">
-                    <span className="text-slate-450 dark:text-slate-500 shrink-0">Rubro:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-105">
+                    <span className="text-slate-450  shrink-0">Rubro:</span>
+                    <span className="font-semibold text-slate-800 ">
                       {RUBROS.find((r) => r.value === profile.rubro)?.label ?? "—"}
                     </span>
                   </div>
                   <div className="flex justify-between items-baseline gap-4">
-                    <span className="text-slate-450 dark:text-slate-500 shrink-0">Días activos:</span>
-                    <span className="font-semibold text-slate-850 dark:text-slate-100 text-right leading-tight">
+                    <span className="text-slate-450  shrink-0">Días activos:</span>
+                    <span className="font-semibold text-slate-850  text-right leading-tight">
                       {DAYS.filter((d) => schedule.weeklyHours[d.key as keyof typeof schedule.weeklyHours]?.enabled)
                         .map((d) => d.label)
                         .join(", ") || "Ninguno"}
                     </span>
                   </div>
                   <div className="flex justify-between items-baseline gap-4">
-                    <span className="text-slate-450 dark:text-slate-500 shrink-0">Duración de cita:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-105">{durationLabel(slot.duration)}</span>
+                    <span className="text-slate-450  shrink-0">Duración de cita:</span>
+                    <span className="font-semibold text-slate-800 ">{durationLabel(slot.duration)}</span>
                   </div>
                   <div className="flex justify-between items-baseline gap-4">
-                    <span className="text-slate-450 dark:text-slate-500 shrink-0">Pausa entre citas:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-105">
+                    <span className="text-slate-450  shrink-0">Pausa entre citas:</span>
+                    <span className="font-semibold text-slate-800 ">
                       {slot.buffer === 0 ? "Sin pausa" : `${slot.buffer} min`}
                     </span>
                   </div>
@@ -694,20 +692,20 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
 
         {/* Global error banner */}
         {error && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-800 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-300">
+          <div className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-800   ">
             <AlertCircle className="h-4.5 w-4.5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Navigation Actions Bar */}
-        <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-850 pt-5">
+        <div className="flex items-center justify-between border-t border-slate-100  pt-5">
           {step > 0 ? (
             <button
               onClick={() => setStep((s) => s - 1)}
               disabled={loading}
               type="button"
-              className="inline-flex items-center gap-1 text-xs font-extrabold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1 text-xs font-extrabold text-slate-500 hover:text-slate-700   transition-colors cursor-pointer disabled:opacity-50"
             >
               <span>← Atrás</span>
             </button>
@@ -719,14 +717,14 @@ export function OnboardingWizardPremium({ userEmail }: Props) {
             onClick={handleNext}
             disabled={!canAdvance() || loading}
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-6 py-3 text-xs font-extrabold text-white shadow-md shadow-primary-600/10 hover:bg-primary-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#007AFF] px-6 py-3 text-xs font-extrabold text-white shadow-md shadow-[#007AFF]/10 hover:bg-[#005cbf] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <span>{loading ? "Guardando..." : step === 2 ? "Finalizar y activar mi portal" : "Continuar →"}</span>
           </button>
         </div>
 
         {step === 0 && (
-          <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-4 leading-none font-semibold">
+          <p className="text-center text-[10px] text-slate-400  mt-4 leading-none font-semibold">
             Puedes modificar toda esta información desde tu dashboard en cualquier momento.
           </p>
         )}

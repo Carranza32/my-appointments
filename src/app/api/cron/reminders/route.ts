@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       },
       include: {
         user: true,
+        service: true,
       },
     });
 
@@ -82,7 +83,12 @@ export async function GET(req: Request) {
       if (!app.reminderWhatsAppSent) {
         try {
           const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-          const waBody = `¡Hola, *${app.clientName}*! Recuerda tu cita con *${app.user.name}* mañana *${dateStr}* a las *${timeStr}* hs. Si necesitas cancelar, usa este enlace: ${siteUrl}/citas/cancelar/${app.id}`;
+          const serviceName = app.service?.name ? ` para *${app.service.name}*` : "";
+          const confirmUrl = `${siteUrl}/citas/confirmar/${app.id}`;
+          const cancelUrl = `${siteUrl}/citas/cancelar/${app.id}`;
+          const meetingUrl = (app.clientMetadata as any)?.meetingUrl;
+          const meetText = meetingUrl ? `\n\n📹 *Videollamada de tu sesión:*\n${meetingUrl}` : "";
+          const waBody = `¡Hola, *${app.clientName}*! 👋 Te recordamos tu cita${serviceName} con *${app.user.name}* mañana *${dateStr}* a las *${timeStr}* hs.${meetText}\n\n✅ *Confirma tu asistencia en 1 clic:*\n${confirmUrl}\n\n❌ Si necesitas cancelar o reprogramar:\n${cancelUrl}`;
           const waResult = await sendWhatsAppMessage({ to: app.clientPhone, body: waBody });
           if (waResult.success) {
             waSuccess = true;

@@ -1,6 +1,5 @@
 "use client";
 
-import { Rubro } from "@prisma/client";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { checkSlugAvailability } from "@/actions/slug";
 import {
@@ -9,17 +8,22 @@ import {
 } from "@/actions/onboarding";
 import { normalizeSlug } from "@/lib/slug";
 
-const RUBROS: { value: Rubro; label: string }[] = [
-  { value: Rubro.SALUD, label: "Salud" },
-  { value: Rubro.BELLEZA, label: "Belleza" },
-  { value: Rubro.CONSULTORIA, label: "Consultoría" },
+const RUBROS: { value: string; label: string }[] = [
+  { value: "SALUD", label: "Salud y Medicina" },
+  { value: "BELLEZA", label: "Belleza y Estética" },
+  { value: "CONSULTORIA", label: "Consultoría y Coaching" },
+  { value: "FITNESS", label: "Fitness y Deporte" },
+  { value: "EDUCACION", label: "Educación y Tutorías" },
+  { value: "VETERINARIA", label: "Veterinaria" },
+  { value: "LEGAL", label: "Servicios Legales" },
+  { value: "GENERAL", label: "General / Otro" },
 ];
 
 export function OnboardingForm() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [rubro, setRubro] = useState<Rubro>(Rubro.SALUD);
+  const [rubro, setRubro] = useState("SALUD");
   const [slugInput, setSlugInput] = useState("");
   const [slugStatus, setSlugStatus] = useState<{
     slug: string;
@@ -93,7 +97,7 @@ export function OnboardingForm() {
         </label>
         <select
           value={rubro}
-          onChange={(e) => setRubro(e.target.value as Rubro)}
+          onChange={(e) => setRubro(e.target.value)}
           className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-zinc-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
         >
           {RUBROS.map((r) => (

@@ -13,9 +13,9 @@ export default async function CitasPage() {
 
   return (
     <div className="relative w-full pb-12">
-      {/* Decorative Glows in Background */}
-      <div className="absolute top-10 right-10 -z-10 h-72 w-72 rounded-full bg-primary-400/10 blur-3xl dark:bg-primary-500/5 animate-float-slow pointer-events-none"></div>
-      <div className="absolute bottom-20 left-10 -z-10 h-96 w-96 rounded-full bg-indigo-400/10 blur-3xl dark:bg-indigo-500/5 animate-float-delayed pointer-events-none"></div>
+      {/* Ambient subtle lighting */}
+      <div className="absolute top-0 right-10 -z-10 h-72 w-72 rounded-full bg-[#007AFF]/5 blur-3xl pointer-events-none"></div>
+      <div className="absolute bottom-10 left-10 -z-10 h-80 w-80 rounded-full bg-[#5856D6]/5 blur-3xl pointer-events-none"></div>
 
       {/* Calendar Area */}
       <div className="w-full">
@@ -24,6 +24,7 @@ export default async function CitasPage() {
           initialYear={year}
           initialMonth={month}
           professionalSlug={professional?.slug ?? ""}
+          rubro={professional?.rubro ?? "GENERAL"}
         />
       </div>
     </div>

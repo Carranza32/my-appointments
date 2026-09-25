@@ -12,7 +12,7 @@ export function isReservedSlug(slug: string): boolean {
 }
 
 export function getBusinessTimeZone(): string {
-  return process.env.BUSINESS_TIMEZONE ?? "America/Mexico_City";
+  return process.env.BUSINESS_TIMEZONE ?? "America/El_Salvador";
 }
 
 export function buildAppointmentRange(

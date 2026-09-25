@@ -50,17 +50,17 @@ export function CancelAppointmentWidget({
 
   if (currentStatus === "CANCELADA") {
     return (
-      <div className="max-w-md w-full rounded-3xl border border-slate-200/80 bg-white/98 p-8 text-center shadow-frost dark:border-slate-800/80 dark:bg-slate-900/98 dark:shadow-frost-dark backdrop-blur-md animate-in zoom-in-95 duration-300">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-650 dark:bg-red-950/40 dark:text-red-400 text-3xl font-bold shadow-md shadow-red-500/10">
-          <CheckCircle className="h-8 w-8" />
+      <div className="max-w-md w-full rounded-2xl border border-black/[0.06] bg-white/80 backdrop-blur-2xl p-8 text-center shadow-[0_4px_24px_rgba(0,0,0,0.02)] animate-in zoom-in-95 duration-200">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF3B30]/10 text-[#FF3B30]">
+          <CheckCircle className="h-7 w-7" />
         </div>
-        <h2 className="text-2xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
+        <h2 className="text-xl font-semibold tracking-tight text-[#1D1D1F]">
           Cita Cancelada
         </h2>
-        <p className="mt-3 text-sm leading-relaxed text-slate-650 dark:text-slate-400">
-          Tu cita con <strong className="text-slate-850 dark:text-slate-150">{businessName}</strong> el día <strong className="text-slate-850 dark:text-slate-150">{formattedDate}</strong> a las <strong className="text-slate-850 dark:text-slate-150">{formattedTime} hs</strong> ha sido cancelada correctamente.
+        <p className="mt-2 text-xs leading-relaxed text-[#86868B]">
+          Tu cita con <strong className="text-[#1D1D1F] font-medium">{businessName}</strong> el día <strong className="text-[#1D1D1F] font-medium">{formattedDate}</strong> a las <strong className="text-[#1D1D1F] font-medium">{formattedTime} hs</strong> ha sido cancelada correctamente.
         </p>
-        <p className="mt-4 text-xs text-slate-500 dark:text-slate-500">
+        <p className="mt-3 text-[11px] text-[#86868B]">
           Se ha enviado un correo electrónico de confirmación.
         </p>
       </div>
@@ -68,46 +68,46 @@ export function CancelAppointmentWidget({
   }
 
   return (
-    <div className="max-w-md w-full rounded-3xl border border-slate-200/80 bg-white/98 p-8 shadow-frost dark:border-slate-800/80 dark:bg-slate-900/98 dark:shadow-frost-dark backdrop-blur-md animate-in zoom-in-95 duration-300 space-y-6">
+    <div className="max-w-md w-full rounded-2xl border border-black/[0.06] bg-white/80 backdrop-blur-2xl p-8 shadow-[0_4px_24px_rgba(0,0,0,0.02)] animate-in zoom-in-95 duration-200 space-y-5">
       <div className="text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400 shadow-md shadow-amber-500/5">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FF9500]/10 text-[#FF9500]">
           <AlertTriangle className="h-6 w-6" />
         </div>
-        <h2 className="text-xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
+        <h2 className="text-xl font-semibold tracking-tight text-[#1D1D1F]">
           ¿Cancelar cita?
         </h2>
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 font-semibold">
+        <p className="mt-1 text-xs text-[#86868B]">
           Hola {clientName}, ¿estás seguro de que deseas cancelar tu cita?
         </p>
       </div>
 
-      <div className="rounded-2xl bg-slate-50 p-4.5 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-850 space-y-3">
-        <div className="flex items-center gap-3 text-xs font-semibold text-slate-650 dark:text-slate-350">
-          <Calendar className="h-4.5 w-4.5 text-primary-500 shrink-0" />
-          <span className="capitalize">{formattedDate}</span>
+      <div className="rounded-xl bg-black/[0.02] p-4 border border-black/[0.06] space-y-2.5">
+        <div className="flex items-center gap-2.5 text-xs text-[#1D1D1F]">
+          <Calendar className="h-4 w-4 text-[#007AFF] shrink-0" />
+          <span className="capitalize font-medium">{formattedDate}</span>
         </div>
-        <div className="flex items-center gap-3 text-xs font-semibold text-slate-650 dark:text-slate-355">
-          <Clock className="h-4.5 w-4.5 text-primary-500 shrink-0" />
-          <span>{formattedTime} hs</span>
+        <div className="flex items-center gap-2.5 text-xs text-[#1D1D1F]">
+          <Clock className="h-4 w-4 text-[#007AFF] shrink-0" />
+          <span className="font-medium">{formattedTime} hs</span>
         </div>
-        <div className="flex items-center gap-3 text-xs font-semibold text-slate-650 dark:text-slate-355 border-t border-slate-200/40 dark:border-slate-800/50 pt-2.5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-450 dark:text-slate-500">Negocio:</span>
-          <span className="font-extrabold text-slate-800 dark:text-slate-150">{businessName}</span>
+        <div className="flex items-center gap-2.5 text-xs text-[#86868B] border-t border-black/[0.04] pt-2">
+          <span className="text-[10px] uppercase tracking-wider font-medium">Negocio:</span>
+          <span className="font-medium text-[#1D1D1F]">{businessName}</span>
         </div>
       </div>
 
       {error && (
-        <p className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-500/5 border border-red-500/10 p-3 rounded-xl">
+        <p className="text-xs font-medium text-[#FF3B30] bg-[#FF3B30]/10 border border-[#FF3B30]/20 p-3 rounded-xl">
           {error}
         </p>
       )}
 
-      <div className="space-y-2.5">
+      <div className="space-y-2 pt-1">
         <button
           type="button"
           disabled={pending}
           onClick={handleCancel}
-          className="w-full inline-flex items-center justify-center rounded-xl bg-red-650 hover:bg-red-700 active:scale-[0.98] transition-all duration-200 py-3.5 text-sm font-extrabold text-white shadow-md shadow-red-600/10 cursor-pointer disabled:opacity-50"
+          className="w-full inline-flex items-center justify-center rounded-xl bg-[#FF3B30] hover:bg-[#d9342b] active:scale-[0.98] transition-all py-3 text-xs font-medium text-white shadow-xs cursor-pointer disabled:opacity-50"
         >
           {pending ? "Cancelando cita..." : "Sí, cancelar cita"}
         </button>
